@@ -44,7 +44,7 @@ def preprocess_step2(file, outfile, section_length):
     print("processing data")
     for i,row in df.iterrows():
         length = len(row['article'])
-        #import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         rows.append({
             'p_id':row['p_id'],
             'a_id':row['a_id'],

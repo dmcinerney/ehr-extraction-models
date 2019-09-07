@@ -1,9 +1,8 @@
-import os
 from contextlib import contextmanager
+import sys
 
 @contextmanager
 def directory(new_dir):
-    original_dir = os.getcwd()
-    os.chdir(new_dir)
+    sys.path.insert(1, new_dir)
     yield
-    os.chdir(original_dir)
+    del sys.path[1]

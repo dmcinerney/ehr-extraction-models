@@ -21,7 +21,7 @@ def main(datadir):
             a = Article(p)
             article_text = extract_raw_text(a)
             sentences = split(article_text)
-            rows.append({'article_sentences':[inference_vectorizer.string_to_seq(sent) for sent in sentences]})
+            rows.append({'article_sentences':[sent for sent in sentences]})
         except Exception:
             continue
     df = pd.DataFrame(rows)
@@ -30,9 +30,9 @@ def main(datadir):
     df_train = df[:int(len(df)*.8)]
     df_val = df[int(len(df)*.8):int(len(df)*.9)]
     df_test = df[int(len(df)*.9):]
-    df_train.to_json('pubmed_train_processed.data', orient='records', lines=True, compression='gzip')
-    df_val.to_json('pubmed_val_processed.data', orient='records', lines=True, compression='gzip')
-    df_test.to_json('pubmed_test_processed.data', orient='records', lines=True, compression='gzip')
+    df_train.to_json('train_processed.data', orient='records', lines=True, compression='gzip')
+    df_val.to_json('val_processed.data', orient='records', lines=True, compression='gzip')
+    df_test.to_json('test_processed.data', orient='records', lines=True, compression='gzip')
 
 # taken from https://github.com/titipata/pubmed_parser/blob/master/pubmed_parser/pubmed_oa_parser.py
 def list_xml_path(path_dir):

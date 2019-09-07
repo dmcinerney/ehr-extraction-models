@@ -1,11 +1,11 @@
 import math
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 from utils import directory
 import models.clinical_bert.parameters as p
 with directory(p.path_to_clinical_bert_repo):
     from modeling_readmission import BertModel, BertSelfAttention
-
 
 class BertSelfAttentionwithTracking(nn.Module):
     def __init__(self, bert_self_attention_module, attention_tracker):
@@ -57,21 +57,20 @@ class AttentionTracker():
     def clear(self):
         self.attentions = []
 
-class ClinicalBertExtractionModel(nn.Module):
+class ClinicalBertWrapper(nn.Module):
     def __init__(self):
-        super(ClinicalBertExtractionModel, self).__init__()
+        super(ClinicalBertWrapper, self).__init__()
         self.clinical_bert = BertModel.from_pretrained(p.pretrained_model)
         self.attention_tracker = AttentionTracker()
         for name,module in self.clinical_bert.named_modules():
             if isinstance(module, BertSelfAttention):
                 advanced_setattr(self.clinical_bert, name, BertSelfAttentionwithTracking(module, self.attention_tracker))
-        # TODO: add other layers for classification etc.
 
-    def forward(self, input_ids, attention_mask):
-        outputs = self.clinical_bert(input_ids, attention_mask=attention_mask)
+    def forward(self, token_ids, attention_mask):
+        outputs = self.clinical_bert(token_ids, attention_mask=attention_mask, output_all_encoded_layers=False)
         self_attentions = self.attention_tracker.get_attention() # batch_size x num_layers x num_heads x num_queries x num_keys
         self.attention_tracker.clear()
-        return outputs, self_attentions
+        return outputs[0], self_attentions
 
 def advanced_setattr(obj, name, value):
     parts = name.split('.')
@@ -79,3 +78,49 @@ def advanced_setattr(obj, name, value):
         advanced_setattr(getattr(obj, parts[0]), '.'.join(parts[1:]), value)
     else:
         setattr(obj, name, value)
+
+class ClinicalBertSentences(nn.Module):
+    def __init__(self):
+        super(ClinicalBertSentences, self).__init__()
+        self.clinical_bert_wrapper = ClinicalBertWrapper()
+        self.linear = nn.Linear(768, 128)
+
+    def forward(self, article_sentences, article_sentences_lengths):
+        b, ns, nt = article_sentences.shape
+        mask = torch.arange(nt, device=article_sentences.device).view(1,1,-1) < article_sentences_lengths.unsqueeze(2)
+        ns = min(1000, ns)
+        nt = min(50, nt)
+        article_sentences = article_sentences[:,:ns,:nt]
+        mask = mask[:,:ns,:nt]
+        ns_temp = 10
+        encodings, self_attentions = [], []
+        for offset in range(0, ns, ns_temp):
+            article_sentences_temp, mask_temp = article_sentences[:,offset:offset+ns_temp], mask[:,offset:offset+ns_temp]
+            actual_ns = mask_temp.size(1)
+            encodings_temp, self_attentions_temp = checkpoint(self.run_checkpointed_clinical_bert, article_sentences_temp.view(b*actual_ns, nt), mask_temp.view(b*actual_ns, nt), *self.parameters())
+            encodings.append(encodings_temp.view(b, actual_ns, -1))
+            nl, nh = self_attentions_temp.shape[1:3]
+            self_attentions.append(self_attentions_temp.view(b, actual_ns, nl, nh, nt, nt))
+        encodings = torch.cat(encodings, 1)
+        self_attentions = torch.cat(self_attentions, 1)
+        return encodings, self_attentions
+
+    def run_checkpointed_clinical_bert(self, *args):
+        encodings, self_attentions = self.clinical_bert_wrapper(*args[:2])
+        encodings = self.linear(encodings)
+        return encodings, self_attentions
+
+class ClinicalBertExtractionModel(nn.Module):
+    def __init__(self):
+        super(ClinicalBertExtractionModel, self).__init__()
+        self.clinical_bert_sentences = ClinicalBertSentences()
+
+    def forward(self, article_sentences, article_sentences_lengths):
+        encodings, self_attentions = self.clinical_bert_sentences(article_sentences, article_sentences_lengths)
+        return dict(encodings=encodings, self_attentions=self_attentions)
+
+def loss_func(encodings, self_attentions):
+    return encodings.sum()
+
+def statistics_func(encodings, self_attentions):
+    return {}
