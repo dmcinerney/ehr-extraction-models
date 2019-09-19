@@ -1,14 +1,13 @@
 import torch
 from pytorch_pretrained_bert.optimization import BertAdam
-from pytt.utils import seed_state
+from pytt.utils import seed_state, read_pickle
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.training.trainer import Trainer
 from pytt.logger import logger
-from dataset import split_dataset
+from dataset import init_dataset
 from dataset_scripts.ehr.batcher import EHRBatcher
-from dataset_scripts.ehr.preprocess_codes import get_codes
-from models.mimic_extraction.model import ClinicalBertMimicExtraction, loss_func, statistics_func
-from models.mimic_extraction.iteration_info import BatchInfo
+from models.ehr_extraction.model import ClinicalBertExtraction, loss_func, statistics_func
+from models.ehr_extraction.iteration_info import BatchInfo
 
 def get_optimizer(param_optimizer, num_train_steps):
     no_decay = ['bias', 'gamma', 'beta']
@@ -17,7 +16,7 @@ def get_optimizer(param_optimizer, num_train_steps):
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay_rate': 0.0}
         ]
     optimizer = BertAdam(optimizer_grouped_parameters,
-                         lr=5e-3,
+                         lr=5e-4,
                          warmup=.1,
                          t_total=num_train_steps)
     return optimizer
@@ -28,14 +27,15 @@ def main(checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 2
     device = 'cuda:1'
-    train_dataset, val_dataset = split_dataset('data/mimic/mimic_reports_to_codes.data')
-    codes = {code:i for i,code in enumerate(get_codes(train_dataset.df))}
+    train_dataset = init_dataset('data/mimic/train_mimic.data')
+    val_dataset = init_dataset('data/mimic/val_mimic.data')
+    codes = {code:i for i,code in enumerate(read_pickle('data/mimic/codes.pkl'))}
     batcher = EHRBatcher(codes)
     indices_iterator = init_indices_iterator(len(train_dataset), batch_size, random=True, epochs=10)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size, random=True, iterations=len(indices_iterator))
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=2, devices=device)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=2, devices=device)
-    model = ClinicalBertMimicExtraction(len(codes)).to(device)
+    model = ClinicalBertExtraction(len(codes)).to(device)
     optimizer = get_optimizer(list(model.named_parameters()), len(indices_iterator))
     #optimizer = torch.optim.Adam(list(model.parameters()))
     trainer = Trainer(model, optimizer, batch_iterator, checkpoint_folder='checkpoints/clinical_bert_mimic_extraction/checkpoint',

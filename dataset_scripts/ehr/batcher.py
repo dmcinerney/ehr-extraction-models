@@ -32,8 +32,8 @@ class EHRInstance(StandardInstance):
             [torch.tensor(tokenizer.convert_tokens_to_ids(sent)) for sent in tokenized_sentences])
         self.tensors['article_sentences_lengths'] = torch.tensor(
             [len(sent) for sent in tokenized_sentences])
-        self.tensors['codes'] = torch.tensor([codes[code_str] for code_str in raw_datapoint['positive_targets']+raw_datapoint['negative_targets']])
-        self.tensors['labels'] = torch.tensor([1 for _ in raw_datapoint['positive_targets']]+[0 for _ in raw_datapoint['negative_targets']])
+        self.tensors['codes'] = torch.tensor([codes[code_str] for code_str in raw_datapoint['targets']])
+        self.tensors['labels'] = torch.tensor(raw_datapoint['labels'])
         self.tensors['num_codes'] = torch.tensor(self.tensors['codes'].size(0))
-        self.observed_keys = ['article_sentences','article_sentences_lengths', 'codes']
+        self.observed_keys = ['article_sentences','article_sentences_lengths', 'codes', 'num_codes']
         self.target_keys = ['labels']
