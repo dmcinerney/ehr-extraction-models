@@ -36,6 +36,7 @@ def main(checkpoint_folder=None):
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=2, devices=device)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=2, devices=device)
     model = ClinicalBertExtraction(len(codes)).to(device)
+    model.train()
     optimizer = get_optimizer(list(model.named_parameters()), len(indices_iterator))
     #optimizer = torch.optim.Adam(list(model.parameters()))
     trainer = Trainer(model, optimizer, batch_iterator, checkpoint_folder='checkpoints/clinical_bert_mimic_extraction/checkpoint',

@@ -25,15 +25,15 @@ class ClinicalBertExtraction(nn.Module):
         scores = self.linear(encoding)
         return dict(scores=scores.transpose(0, 1).squeeze(2), attention=attention, num_codes=num_codes)
 
-def loss_func(scores, labels, attention, num_codes):
+def loss_func(scores, attention, num_codes, labels):
     positive_labels = labels.sum()
     negative_labels = (labels==labels).sum() - positive_labels
     pos_weight = negative_labels/positive_labels
     losses = F.binary_cross_entropy_with_logits(scores, labels.float(), pos_weight=pos_weight, reduction='none')
     mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
-    return losses[mask].mean()
+    return losses[mask].mean()*mask.size(0)
 
-def statistics_func(scores, labels, attention, num_codes):
+def statistics_func(scores, attention, num_codes, labels):
     mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
     return {'positives':(scores[mask] > 0).sum(),
             'true_positives':((scores[mask] > 0) & (labels[mask] == 1)).sum(),

@@ -10,7 +10,7 @@ def precision_recall_f1(true_positives, positives, relevants):
 class BatchInfo(BI):
     def __str__(self):
         return "loss: %f\naccuracy: %f\np: %f, r: %f, f1: %f" % (
-            self.batch_info_dict['loss'],
+            self.batch_info_dict['loss']/self.batch_info_dict['_batch_length'],
             self.batch_info_dict['true_positives']/self.batch_info_dict['total_predicted'],
             *precision_recall_f1(
                 self.batch_info_dict['true_positives'],

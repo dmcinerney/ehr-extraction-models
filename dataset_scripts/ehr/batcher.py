@@ -1,8 +1,7 @@
 import torch
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from pytt.batching.standard_batcher import StandardBatcher,\
-                                           StandardInstance,\
-                                           StandardBatch
+                                           StandardInstance
 from pytt.utils import pad_and_concat
 import spacy
 nlp = spacy.load('en_core_web_sm')
@@ -33,7 +32,11 @@ class EHRInstance(StandardInstance):
         self.tensors['article_sentences_lengths'] = torch.tensor(
             [len(sent) for sent in tokenized_sentences])
         self.tensors['codes'] = torch.tensor([codes[code_str] for code_str in raw_datapoint['targets']])
-        self.tensors['labels'] = torch.tensor(raw_datapoint['labels'])
         self.tensors['num_codes'] = torch.tensor(self.tensors['codes'].size(0))
         self.observed_keys = ['article_sentences','article_sentences_lengths', 'codes', 'num_codes']
-        self.target_keys = ['labels']
+        if 'labels' in raw_datapoint.keys():
+            self.tensors['labels'] = torch.tensor(raw_datapoint['labels'])
+            self.target_keys = ['labels']
+        else:
+            self.target_keys = []
+        self.datapoint['tokenized_sentences'] = tokenized_sentences
