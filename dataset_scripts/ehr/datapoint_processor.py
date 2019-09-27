@@ -25,12 +25,12 @@ class DefaultProcessor(GenericProcessor):
         batcher = EHRBatcher(codes)
         super(DefaultProcessor, self).__init__(model, batcher, self.test_func, device=device)
 
-    def test_func(self, scores, attention, num_codes, labels=None):
+    def test_func(self, scores, attention, traceback_attention, num_codes, labels=None):
         # TODO: make result from batch
-        result = {'scores':scores, 'attention':attention}
+        result = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention}
         if labels is not None:
-            loss = loss_func(scores, attention, num_codes, labels)
-            stats = statistics_func(scores, attention, num_codes, labels)
+            loss = loss_func(scores, attention, traceback_attention, num_codes, labels)
+            stats = statistics_func(scores, attention, traceback_attention, num_codes, labels)
             stats = {'loss': loss, **stats}
         else:
             stats = {}

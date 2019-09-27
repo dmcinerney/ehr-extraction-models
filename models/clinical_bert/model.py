@@ -117,7 +117,7 @@ class ClinicalBertSentences(nn.Module):
             else:
                 conditioning_reshaped = conditioning
             results = checkpoint(
-                self.run_checkpointed_clinical_bert, article_sentences_temp.view(b*actual_ns, nt), mask_temp.view(b*actual_ns, nt), conditioning_reshaped, *self.parameters())
+                self.run_checkpointed_clinical_bert, article_sentences_temp.reshape(b*actual_ns, nt), mask_temp.reshape(b*actual_ns, nt), conditioning_reshaped, *self.parameters())
             if len(results) == 3:
                 encodings_temp, self_attentions_temp, word_level_attentions_temp = results
             else:

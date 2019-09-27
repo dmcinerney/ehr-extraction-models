@@ -11,7 +11,9 @@ def query_text(text, query):
         'score':results['scores'].item(),
         'heatmaps':{
             'attention':[sent[:len(results['tokenized_text'][i])]
-                         for i,sent in enumerate(results['attention'][0,0].tolist())],
+                for i,sent in enumerate(results['attention'][0,0].tolist())],
+            'traceback_attention':[sent[:len(results['tokenized_text'][i])]
+                for i,sent in enumerate(results['traceback_attention'][0,0].tolist())],
         },
         'tokenized_text':results['tokenized_text']
     }
