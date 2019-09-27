@@ -31,7 +31,7 @@ This will print running statistics to the command line, and the last print will 
 
 We also provide an easy interface (that can be used by a server for instance) in order to output the results of one ICD code query on one report.  The result outputs the score (> 0 predicts that the code will occur), attention (over each of the tokens in each sentence of the report), and the tokenized version of the input text.
 
-To use the interface
+To use the interface, update the codes_file and model_file variables in interface.py to point to the codes.pkl file in the data directory and the model_state.tpkl file in a checkpoint folder.  Then you can do:
 
     python
     import interface

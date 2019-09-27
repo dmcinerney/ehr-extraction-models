@@ -16,11 +16,11 @@ class GenericProcessor(RawIndividualProcessor):
         return super(GenericProcessor, self).process_datapoint(raw_datapoint)
 
 class DefaultProcessor(GenericProcessor):
-    def __init__(self):
+    def __init__(self, codes_file, model_file):
         device = 'cuda:0'
-        codes = {code:i for i,code in enumerate(read_pickle('data/mimic/codes.pkl'))}
+        codes = {code:i for i,code in enumerate(read_pickle(codes_file))}
         model = ClinicalBertExtraction(len(codes)).to(device)
-        model.load_state_dict(torch.load('checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl', map_location=device))
+        model.load_state_dict(torch.load(model_file, map_location=device))
         model.eval()
         batcher = EHRBatcher(codes)
         super(DefaultProcessor, self).__init__(model, batcher, self.test_func, device=device)

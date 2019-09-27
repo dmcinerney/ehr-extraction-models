@@ -1,6 +1,8 @@
 from dataset_scripts.ehr.datapoint_processor import DefaultProcessor
 
-dp = DefaultProcessor()
+codes_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'
+model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl'
+dp = DefaultProcessor(codes_file, model_file)
 
 def get_queries():
     return dp.batcher.codes
