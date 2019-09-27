@@ -27,7 +27,7 @@ def main(checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 2
     device = 'cuda:1'
-    train_dataset = init_dataset('/home/jered/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/train_mimic.data')
+    train_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/train_mimic.data')
     val_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data')
     codes = {code:i for i,code in enumerate(read_pickle('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'))}
     batcher = EHRBatcher(codes)
