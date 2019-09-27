@@ -17,13 +17,13 @@ def main(checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 2
     device = 'cuda:1'
-    val_dataset = init_dataset('data/mimic/val_mimic.data')
-    codes = {code:i for i,code in enumerate(read_pickle('data/mimic/codes.pkl'))}
+    val_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data')
+    codes = {code:i for i,code in enumerate(read_pickle('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'))}
     batcher = EHRBatcher(codes)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=2, devices=device)
-    model = ClinicalBertExtraction(len(codes))
-    model.load_state_dict(torch.load("checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl", map_location=device))
+    model = ClinicalBertExtraction(len(codes)).to(device)
+    model.load_state_dict(torch.load("/home/jered/Documents/projects/ehr-extraction-models/checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl", map_location=device))
     model.eval()
     tester = Tester(model, val_iterator, batch_info_class=BatchInfo)
     tester.test(test_func)
