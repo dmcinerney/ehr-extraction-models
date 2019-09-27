@@ -8,6 +8,10 @@ from dataset_scripts.ehr.batcher import EHRBatcher
 from models.ehr_extraction.model import ClinicalBertExtraction, loss_func, statistics_func
 from models.ehr_extraction.iteration_info import BatchInfo
 
+val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data'
+codes_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'
+model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl'
+
 def test_func(*args, **kwargs):
     return None, {'loss':loss_func(*args, **kwargs),
             **statistics_func(*args, **kwargs)}
@@ -17,13 +21,13 @@ def main(checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 2
     device = 'cuda:1'
-    val_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data')
-    codes = {code:i for i,code in enumerate(read_pickle('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'))}
+    val_dataset = init_dataset(val_file)
+    codes = {code:i for i,code in enumerate(read_pickle(codes_file))}
     batcher = EHRBatcher(codes)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=2, devices=device)
     model = ClinicalBertExtraction(len(codes)).to(device)
-    model.load_state_dict(torch.load("/home/jered/Documents/projects/ehr-extraction-models/checkpoints/clinical_bert_mimic_extraction/checkpoint/model_state.tpkl", map_location=device))
+    model.load_state_dict(torch.load(model_file, map_location=device))
     model.eval()
     tester = Tester(model, val_iterator, batch_info_class=BatchInfo)
     tester.test(test_func)

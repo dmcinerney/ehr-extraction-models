@@ -9,6 +9,11 @@ from dataset_scripts.ehr.batcher import EHRBatcher
 from models.ehr_extraction.model import ClinicalBertExtraction, loss_func, statistics_func
 from models.ehr_extraction.iteration_info import BatchInfo
 
+train_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/train_mimic.data'
+val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data'
+codes_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'
+checkpoint_folder = 'checkpoints/clinical_bert_mimic_extraction/checkpoint'
+
 def get_optimizer(param_optimizer, num_train_steps):
     no_decay = ['bias', 'gamma', 'beta']
     optimizer_grouped_parameters = [
@@ -27,9 +32,9 @@ def main(checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 2
     device = 'cuda:1'
-    train_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/train_mimic.data')
-    val_dataset = init_dataset('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val_mimic.data')
-    codes = {code:i for i,code in enumerate(read_pickle('/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/codes.pkl'))}
+    train_dataset = init_dataset(train_file)
+    val_dataset = init_dataset(val_file)
+    codes = {code:i for i,code in enumerate(read_pickle(codes_file))}
     batcher = EHRBatcher(codes)
     indices_iterator = init_indices_iterator(len(train_dataset), batch_size, random=True, epochs=10)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size, random=True, iterations=len(indices_iterator))
@@ -39,7 +44,7 @@ def main(checkpoint_folder=None):
     model.train()
     optimizer = get_optimizer(list(model.named_parameters()), len(indices_iterator))
     #optimizer = torch.optim.Adam(list(model.parameters()))
-    trainer = Trainer(model, optimizer, batch_iterator, checkpoint_folder='checkpoints/clinical_bert_mimic_extraction/checkpoint',
+    trainer = Trainer(model, optimizer, batch_iterator, checkpoint_folder=checkpoint_folder,
                       checkpoint_every=10, val_iterator=val_iterator, val_every=10, batch_info_class=BatchInfo)
     with torch.autograd.set_detect_anomaly(False):
         trainer.train(loss_func, statistics_func=statistics_func)
