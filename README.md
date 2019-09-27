@@ -8,6 +8,7 @@ This repository contains a number of models for performing conditioned extractiv
 Install the requirements:
 
     pip install -r requirements.txt
+    python -m spacy download en_core_web_sm
 
 In order to use the code as it currently is, you will also need to follow the intructions in `models/clinical_bert/README.md` to download and use the clinicalBERT model.  Then update the paths to the data files in the `train_mimic_extraciton.py` and `test_mimic_extraction.py` scripts.
 
