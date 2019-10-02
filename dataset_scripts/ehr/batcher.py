@@ -1,15 +1,16 @@
 import torch
-from pytorch_pretrained_bert.tokenization import BertTokenizer
+from transformers import BertTokenizer
 from pytt.batching.standard_batcher import StandardBatcher,\
                                            StandardInstance
 from pytt.utils import pad_and_concat
+import  models.clinical_bert.parameters as p
 import spacy
 nlp = spacy.load('en_core_web_sm')
 
 class EHRBatcher(StandardBatcher):
     def __init__(self, codes):
         self.codes = codes
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
 
     def process_datapoint(self, raw_datapoint):
         return EHRInstance(raw_datapoint, self.tokenizer, self.codes)

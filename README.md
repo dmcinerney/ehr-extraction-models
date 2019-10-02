@@ -10,7 +10,7 @@ Install the requirements:
     pip install -r requirements.txt
     python -m spacy download en_core_web_sm
 
-In order to use the code as it currently is, you will also need to follow the intructions in `models/clinical_bert/README.md` to download and use the clinicalBERT model.  Then update the path variables at the beginning of the `train_mimic_extraciton.py` and `test_mimic_extraction.py` scripts.
+In order to use the code as it currently is, you will also need to follow the intructions in `models/clinical_bert/README.md` to download a pretrained bert (hopefully on clinical data).  Then update the path variables at the beginning of the `train_mimic_extraciton.py` and `test_mimic_extraction.py` scripts.
 
 ### Datasets
 
