@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import sys
 import os
+import torch
 
 @contextmanager
 def directory(new_dir):
@@ -27,7 +28,7 @@ def replace_keys(dictionary, old_keys, new_keys):
         dictionary[new_key] = dictionary[old_key]
         del dictionary[old_key]
 
-def traceback_attention(self_attentions, attention_vecs=None):
+def traceback_attention(self_attentions, attention_vecs=None, factor_in_residuals=True):
     # expects a self_attentions matrix of shape:
     #   batch_size x num_layers x num_queries x num_keys
     #   IMPORTANT NOTE: this does not contain a num_heads dim
@@ -42,5 +43,12 @@ def traceback_attention(self_attentions, attention_vecs=None):
             torch.eye(num_queries, device=self_attentions.device)\
             .expand(b, num_queries, num_queries)
     for i in range(self_attentions.size(1)-1,-1,-1):
-        attention_vecs = attention_vecs @ self_attentions[:,i]
+        self_attention_matrix = self_attentions[:,i]
+        if factor_in_residuals:
+            self_attention_matrix = self_attention_matrix\
+                + torch.eye(self_attention_matrix.size(1),
+                            device=self_attention_matrix.device)
+        attention_vecs = attention_vecs @ self_attention_matrix
+        if factor_in_residuals:
+            attention_vecs = attention_vecs/attention_vecs.sum(2, keepdim=True)
     return attention_vecs

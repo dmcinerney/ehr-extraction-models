@@ -1,8 +1,8 @@
 import torch
 from pytt.utils import read_pickle
 from pytt.testing.raw_individual_processor import RawIndividualProcessor
-from models.ehr_extraction.model import ClinicalBertExtraction, loss_func, statistics_func
-from dataset_scripts.ehr.batcher import EHRBatcher
+from models.ehr_extraction.code_supervision.model import Model, loss_func, statistics_func
+from dataset_scripts.ehr.code_dataset.batcher import Batcher
 
 
 class GenericProcessor(RawIndividualProcessor):
@@ -16,21 +16,20 @@ class GenericProcessor(RawIndividualProcessor):
         return super(GenericProcessor, self).process_datapoint(raw_datapoint)
 
 class DefaultProcessor(GenericProcessor):
-    def __init__(self, codes_file, model_file):
-        device = 'cuda:0'
-        codes = {code:i for i,code in enumerate(read_pickle(codes_file))}
-        model = ClinicalBertExtraction(len(codes)).to(device)
+    def __init__(self, code_graph_file, model_file):
+        device = 'cuda:1'
+        batcher = Batcher(read_pickle(code_graph_file))
+        model = Model(len(batcher.code_graph.nodes)).to(device)
         model.load_state_dict(torch.load(model_file, map_location=device))
         model.eval()
-        batcher = EHRBatcher(codes)
         super(DefaultProcessor, self).__init__(model, batcher, self.test_func, device=device)
 
-    def test_func(self, scores, attention, traceback_attention, num_codes, labels=None):
+    def test_func(self, scores, num_codes, attention, traceback_attention, article_sentences_lengths, labels=None):
         # TODO: make result from batch
-        result = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention}
+        result = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention, 'article_sentences_lengths':article_sentences_lengths}
         if labels is not None:
-            loss = loss_func(scores, attention, traceback_attention, num_codes, labels)
-            stats = statistics_func(scores, attention, traceback_attention, num_codes, labels)
+            loss = loss_func(scores, num_codes, attention, traceback_attention, article_sentences_lengths, labels)
+            stats = statistics_func(scores, num_codes, attention, traceback_attention, article_sentences_lengths, labels)
             stats = {'loss': loss, **stats}
         else:
             stats = {}

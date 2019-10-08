@@ -19,7 +19,6 @@ class ClinicalBertWrapper(nn.Module):
         self_attentions = torch.cat([self_attention.unsqueeze(1) for self_attention in outputs[2]], 1)
         return encodings, self_attentions
 
-
 class ClinicalBertSentences(nn.Module):
     def __init__(self, embedding_dim=None, conditioned_pool=False, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10):
         super(ClinicalBertSentences, self).__init__()
