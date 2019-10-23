@@ -2,20 +2,33 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from models.clinical_bert.model import ClinicalBertSentences
-from utils import traceback_attention as ta
+from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10):
+    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True):
         super(Model, self).__init__()
-        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, conditioned_pool=False, truncate_tokens=30, truncate_sentences=100, sentences_per_checkpoint=sentences_per_checkpoint)
+        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, conditioned_pool=False, truncate_tokens=30, truncate_sentences=100, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
+        if freeze_bert:
+            set_dropout(self.clinical_bert_sentences, 0)
+            set_require_grad(self.clinical_bert_sentences, False)
         self.code_embeddings = nn.Embedding(num_codes, outdim)
         self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)
+        self.device1 = device1
+        self.device2 = device2
+
+    def correct_devices(self):
+        self.clinical_bert_sentences.correct_devices()
+        self.code_embeddings.to(self.device2)
+        self.attention.to(self.device2)
+        self.linear.to(self.device2)
 
     def forward(self, article_sentences, article_sentences_lengths, codes, num_codes):
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
+        article_sentences_lengths, codes, num_codes, encodings, self_attentions, word_level_attentions =\
+            article_sentences_lengths.to(self.device2), codes.to(self.device2), num_codes.to(self.device2), encodings.to(self.device2), self_attentions.to(self.device2), word_level_attentions.to(self.device2)
         # b, ns, nt = word_level_attentions.shape
         b, ns, nl, nh, nt, _ = self_attentions.shape
         traceback_word_level_attentions = ta(
@@ -23,7 +36,8 @@ class Model(nn.Module):
             attention_vecs=word_level_attentions.view(b*ns, 1, nt))\
             .view(b, ns, nt)
         code_embeddings = self.code_embeddings(codes)
-        encoding, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1))
+        key_padding_mask = (article_sentences_lengths == 0)[:,:encodings.size(1)]
+        encoding, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1), key_padding_mask=key_padding_mask)
         nq, _, emb_dim = encoding.shape
         word_level_attentions = word_level_attentions\
             .view(b, 1, ns, nt)\
@@ -41,13 +55,10 @@ class Model(nn.Module):
             traceback_attention=traceback_attention,
             article_sentences_lengths=article_sentences_lengths)
 
-def entropy(attention):
-    return torch.distributions.OneHotCategorical(attention).entropy()
-
 def loss_func(scores, num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape
     positive_labels = labels.sum()
-    negative_labels = (labels==labels).sum() - positive_labels
+    negative_labels = num_codes.sum() - positive_labels
     pos_weight = negative_labels/positive_labels
     losses = F.binary_cross_entropy_with_logits(scores, labels.float(), pos_weight=pos_weight, reduction='none')
     code_mask = (torch.arange(nq, device=labels.device) < num_codes.unsqueeze(1))

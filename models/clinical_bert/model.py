@@ -11,6 +11,7 @@ class ClinicalBertWrapper(nn.Module):
         super(ClinicalBertWrapper, self).__init__()
         config = BertModel.config_class.from_pretrained(p.pretrained_model)
         config.output_attentions = True
+        self.hidden_size = config.hidden_size
         self.clinical_bert = BertModel.from_pretrained(p.pretrained_model, config=config)
 
     def forward(self, token_ids, attention_mask):
@@ -20,10 +21,11 @@ class ClinicalBertWrapper(nn.Module):
         return encodings, self_attentions
 
 class ClinicalBertSentences(nn.Module):
-    def __init__(self, embedding_dim=None, conditioned_pool=False, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10):
+    def __init__(self, embedding_dim=None, conditioned_pool=False, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10, device='cpu'):
         super(ClinicalBertSentences, self).__init__()
-        outdim = 768
         self.clinical_bert_wrapper = ClinicalBertWrapper()
+        self.device = device
+        outdim = self.clinical_bert_wrapper.hidden_size
         self.embedding_dim = embedding_dim
         if embedding_dim is not None:
             self.linear = nn.Linear(outdim, embedding_dim)
@@ -33,6 +35,9 @@ class ClinicalBertSentences(nn.Module):
         self.truncate_sentences = truncate_sentences
         self.truncate_tokens = truncate_tokens
         self.sentences_per_checkpoint = sentences_per_checkpoint
+
+    def correct_devices(self):
+        self.to(self.device)
 
     def forward(self, article_sentences, article_sentences_lengths, conditioning=None):
         b, ns, nt = article_sentences.shape
@@ -74,6 +79,7 @@ class ClinicalBertSentences(nn.Module):
         return encodings, self_attentions, word_level_attentions
 
     def run_checkpointed_clinical_bert(self, token_ids, attention_mask, conditioning, *args):
+        token_ids, attention_mask, conditioning = token_ids.to(self.device), attention_mask.to(self.device), conditioning.to(self.device)
         encodings, self_attentions = self.clinical_bert_wrapper(token_ids, attention_mask)
         if self.conditioned_pool and conditioning.size(0) != 0:
             if self.embedding_dim is not None:

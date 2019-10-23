@@ -52,3 +52,15 @@ def traceback_attention(self_attentions, attention_vecs=None, factor_in_residual
         if factor_in_residuals:
             attention_vecs = attention_vecs/attention_vecs.sum(2, keepdim=True)
     return attention_vecs
+
+def entropy(attention):
+    return torch.distributions.OneHotCategorical(attention).entropy()
+
+def set_dropout(model, p):
+    for module in model.modules():
+        if isinstance(module, torch.nn.Dropout):
+            module.p = p
+
+def set_require_grad(model, boolean):
+    for p in model.parameters():
+        p.requires_grad = boolean
