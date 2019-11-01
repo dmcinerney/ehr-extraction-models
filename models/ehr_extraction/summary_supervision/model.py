@@ -91,7 +91,6 @@ class Decoder(nn.Module):
     def decode_generate(self, text_states, text_length, beam_size=1):
         if beam_size > 1:
             raise NotImplementedError
-        import pdb; pdb.set_trace()
         sentence_level_attentions = []
         summary = torch.zeros_like(text_length).unsqueeze(1) + self.start_token_id
         instance_losses = torch.zeros(summary.size(0), device=self.device)

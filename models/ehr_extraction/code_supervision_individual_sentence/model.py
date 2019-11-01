@@ -14,19 +14,19 @@ class Model(nn.Module):
             set_dropout(self.clinical_bert_sentences, 0)
             set_require_grad(self.clinical_bert_sentences, False)
         self.code_embeddings = nn.Embedding(num_codes, outdim)
-        self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)
         self.linear2 = nn.Linear(outdim*2, outdim) if reduce_code_embeddings else None
+        self.predict_targets = PredictTargets(outdim)
         self.device1 = device1
         self.device2 = device2
 
     def correct_devices(self):
         self.clinical_bert_sentences.correct_devices()
         self.code_embeddings.to(self.device2)
-        self.attention.to(self.device2)
         self.linear.to(self.device2)
         if self.linear2 is not None:
             self.linear2.to(self.device2)
+        self.predict_targets.to(self.device2)
 
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None):
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
@@ -49,51 +49,53 @@ class Model(nn.Module):
             code_embeddings = self.linear2(code_embeddings)
         elif codes is None:
             code_embeddings = code_description_embeddings
-        key_padding_mask = (article_sentences_lengths == 0)[:,:encodings.size(1)]
-        encoding, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1), key_padding_mask=key_padding_mask)
-        nq, _, emb_dim = encoding.shape
-        word_level_attentions = word_level_attentions\
-            .view(b, 1, ns, nt)\
-            .expand(b, nq, ns, nt)
-        traceback_word_level_attentions = traceback_word_level_attentions\
-            .view(b, 1, ns, nt)\
-            .expand(b, nq, ns, nt)
-        attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
-        traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
-        scores = self.linear(encoding)
+        sentence_level_scores = self.predict_targets(code_embeddings.transpose(0, 1), encodings.transpose(0, 1)).transpose(0, 2).transpose(1, 2)
+        mask = (article_sentences_lengths != 0)[:,:encodings.size(1)].unsqueeze(1).expand(sentence_level_scores.shape)
+        sentence_level_scores_masked = sentence_level_scores*mask
+        scores = sentence_level_scores_masked.sum(2)/mask.sum(2)
         return_dict = dict(
-            scores=scores.transpose(0, 1).squeeze(2),
+            scores=scores,
             num_codes=num_codes,
             total_num_codes=torch.tensor(self.num_codes),
-            attention=attention,
-            traceback_attention=traceback_attention,
+            word_level_attentions=word_level_attentions,
+            traceback_word_level_attentions=traceback_word_level_attentions,
+            sentence_level_scores=sentence_level_scores,
             article_sentences_lengths=article_sentences_lengths)
         if codes is not None:
             return_dict['codes'] = codes
         return return_dict
 
-def loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
-    b, nq, ns, nt = attention.shape
+def loss_func(scores, codes, num_codes, total_num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
+    b, nq = scores.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
     pos_weight = negative_labels/positive_labels
     losses = F.binary_cross_entropy_with_logits(scores, labels.float(), pos_weight=pos_weight, reduction='none')
     code_mask = (torch.arange(nq, device=labels.device) < num_codes.unsqueeze(1))
-    loss = losses[code_mask].mean()*b
-    if attention_sparsity:
-        loss += gamma*entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b
-    if traceback_attention_sparsity:
-        loss += gamma*entropy(traceback_attention.view(b, nq, ns*nt))[code_mask].mean()*b
-    return loss
+    return losses[code_mask].mean()*b
 
-def loss_func_creator(attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
-    def loss_func_wrapper(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):
-        return loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels,
-                         attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
-    return loss_func_wrapper
+def get_sentence_level_attentions(sentence_level_scores, article_sentences_lengths, labels):
+    ns = sentence_level_scores.size(2)
+    sentence_level_attentions = sentence_level_scores*(labels*2-1).unsqueeze(2)
+    sentence_level_attentions[(article_sentences_lengths == 0)[:,:ns].unsqueeze(1).expand(sentence_level_attentions.shape)] = -float('inf')
+    sentence_level_attentions = F.softmax(sentence_level_attentions, 2)
+    return sentence_level_attentions
 
-def statistics_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):
-    b, nq, ns, nt = attention.shape
+def get_full_attention(word_level_attentions, sentence_level_attentions):
+    b, ns, nt = word_level_attentions.shape
+    nq = sentence_level_attentions.size(1)
+    word_level_attentions = word_level_attentions\
+        .view(b, 1, ns, nt)\
+        .expand(b, nq, ns, nt)
+    attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
+    return attention
+
+def statistics_func(scores, codes, num_codes, total_num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
+    b, ns, nt = word_level_attentions.shape
+    nq = scores.size(1)
+    sentence_level_attentions = get_sentence_level_attentions(sentence_level_scores, article_sentences_lengths, labels)
+    attention = get_full_attention(word_level_attentions, sentence_level_attentions)
+    traceback_attention = get_full_attention(traceback_word_level_attentions, sentence_level_attentions)
     code_mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
     positives = get_code_counts(total_num_codes, codes, code_mask, (scores > 0))
     true_positives = get_code_counts(total_num_codes, codes, code_mask, ((scores > 0) & (labels == 1)))
@@ -105,3 +107,15 @@ def statistics_func(scores, codes, num_codes, total_num_codes, attention, traceb
             'accuracy_sum':((scores[code_mask] > 0).long() == labels[code_mask]).sum().float()*b/code_mask.sum(),
             'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
             'traceback_attention_entropy':entropy(traceback_attention.view(b, nq, ns*nt))[code_mask].mean()*b}
+
+class PredictTargets(nn.Module):
+    def __init__(self, dim):
+        super(PredictTargets, self).__init__()
+        self.linear1 = nn.Linear(2*dim, dim)
+        self.linear2 = nn.Linear(dim, 1)
+
+    def forward(self, targets, embeddings):
+        nt, b, vs = targets.shape
+        ne = embeddings.size(0)
+        vectors = torch.cat((targets.unsqueeze(1).expand(nt, ne, b, vs), embeddings.unsqueeze(0).expand(nt, ne, b, vs)), 3)
+        return self.linear2(F.tanh(self.linear1(vectors))).squeeze(3)

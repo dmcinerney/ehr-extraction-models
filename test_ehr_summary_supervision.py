@@ -9,6 +9,7 @@ from pytt.logger import logger
 from dataset import Dataset
 from dataset_scripts.ehr.summary_dataset.batcher import UnsupervisedBatcher
 from models.ehr_extraction.summary_supervision.model import Model, loss_func, statistics_func
+from models.ehr_extraction.summary_supervision.iteration_info import BatchInfo
 from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 import json
@@ -27,7 +28,8 @@ class TestFunc:
         kwargs = {k:outputs[k] for k in
                   ['instance_losses', 'sentence_level_attentions', 'decoded_summary_length', 'attention', 'traceback_attention', 'article_sentences_lengths']}
         stats = {'loss':loss_func(**kwargs), **statistics_func(**kwargs)}
-        for i,decoded_summary in enumerate(outputs['decoded_summary']):
+#        for i,decoded_summary in enumerate(outputs['decoded_summary']):
+        for i,decoded_summary in enumerate(batch.collated_datapoints['summary']):
 #            with open(os.path.join(self.results_directory, 'decoded_summary%i.txt' % batch.instances[i]['df_index']), 'w') as f:
 #                decoded_summary_text = self.tokenizer.decode(decoded_summary.tolist())
 #                decoded_summary_text = decoded_summary_text if isinstance(decoded_summary_text, str) else decoded_summary_text[0]
@@ -36,16 +38,20 @@ class TestFunc:
 #                tokenized_summary_text = self.tokenizer.decode(self.tokenizer.convert_tokens_to_ids(batch.instances[i]['tokenized_summary']))
 #                tokenized_summary_text = tokenized_summary_text if isinstance(tokenized_summary_text, str) else tokenized_summary_text[0]
 #                f.write(tokenized_summary_text[0])
+            print(outputs['decoded_summary'][i])
             with open(os.path.join(self.results_directory, 'attn_vis_data%i.json' % batch.instances[i]['df_index']), 'w') as f:
                 vis = {}
-                import pdb; pdb.set_trace()
-                vis['article_lst'] = sum(batch.instances[i]['tokenized_sentences'], [])
-                vis['decoded_lst'] = self.tokenizer.convert_ids_to_tokens(decoded_summary.tolist())
+                attn = outputs['sentence_level_attentions'][i]
+                attn = (attn/attn.max(1, keepdim=True)[0]).tolist()
+                vis['article_lst'] = [' '.join(sent) for sent in batch.instances[i]['tokenized_sentences']]
+                vis['decoded_lst'] = self.tokenizer.convert_ids_to_tokens(decoded_summary.tolist())[:len(attn)]
                 vis['abstract_str'] = str(' '.join(batch.instances[i]['tokenized_summary']))
-                vis['attn_dists'] = outputs['traceback_attention'][i].tolist()
+                vis['attn_dists'] = attn
                 vis['p_gens'] = [0 for _ in vis['decoded_lst']]
                 json.dump(vis, f)
-        return None, stats
+        return stats
+
+
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -56,9 +62,9 @@ def main(load_checkpoint_folder=None):
 #    device1 = 'cuda:%i' % (torch.distributed.get_rank() if torch.distributed.is_initialized() else 1)
     device1 = 'cpu'
     device2 = 'cpu'
+    batcher = UnsupervisedBatcher()
     df = pd.read_csv(val_file, compression='gzip')
     val_dataset = Dataset(df[df.impression == df.impression])
-    batcher = UnsupervisedBatcher()
     batch_size = 4
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
@@ -72,10 +78,12 @@ def main(load_checkpoint_folder=None):
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
     model.eval()
-    tester = Tester(model, val_iterator)
-#    test_func = TestFunc(results_directory, batcher.tokenizer, tensorboard_dir=os.path.join(save_checkpoint_folder, 'tensorboard/with_dropout'))
-    test_func = TestFunc(results_directory, batcher.tokenizer, tensorboard_dir=os.path.join(save_checkpoint_folder, 'tensorboard/without_dropout'))
-    tester.test(test_func)
+    test_func = TestFunc(os.path.join(load_checkpoint_folder, 'results'), batcher.tokenizer)
+    class BatchInfoTest(BatchInfo):
+        def stats(self):
+            return test_func(self.batch, self.batch_outputs)
+    tester = Tester(model, val_iterator, batch_info_class=BatchInfoTest)
+    tester.test()
 
 if __name__ == '__main__':
     main(load_checkpoint_folder=load_checkpoint_folder)

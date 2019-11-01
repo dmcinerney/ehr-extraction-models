@@ -64,3 +64,7 @@ def set_dropout(model, p):
 def set_require_grad(model, boolean):
     for p in model.parameters():
         p.requires_grad = boolean
+
+def get_code_counts(total_num_codes, codes, code_mask, satisfied_condition):
+    template_counts = torch.zeros((codes.size(0), total_num_codes), device=codes.device)
+    return template_counts.scatter_add(1, codes, satisfied_condition.masked_fill(code_mask==0, 0).float()).sum(0)

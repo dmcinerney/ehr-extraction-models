@@ -1,11 +1,14 @@
 from dataset_scripts.ehr.code_dataset.datapoint_processor import DefaultProcessor
 
-codes_file = '/home/jered/Documents/data/icd_codes/code_graph.pkl'
-model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint6/model_state.tpkl'
+#codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
+codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
+model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint3/model_state.tpkl'
 dp = DefaultProcessor(codes_file, model_file)
 
 def get_queries():
-    return dp.batcher.code_idxs
+    return {k:dp.batcher.code_graph.nodes[k]['description']
+            if 'description' in dp.batcher.code_graph.nodes[k].keys() else ''
+            for k,v in dp.batcher.code_idxs.items()}
 
 def query_text(text, query):
     results = dp.process_datapoint(text, query).results
