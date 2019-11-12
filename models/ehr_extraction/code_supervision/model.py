@@ -11,14 +11,23 @@ class Model(nn.Module):
         self.num_codes = num_codes
         self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, conditioned_pool=False, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
-            set_dropout(self.clinical_bert_sentences, 0)
-            set_require_grad(self.clinical_bert_sentences, False)
+            self.freeze_bert()
+        else:
+            self.unfreeze_bert()
         self.code_embeddings = nn.Embedding(num_codes, outdim)
         self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)
         self.linear2 = nn.Linear(outdim*2, outdim) if reduce_code_embeddings else None
         self.device1 = device1
         self.device2 = device2
+
+    def freeze_bert(self):
+        set_dropout(self.clinical_bert_sentences, 0)
+        set_require_grad(self.clinical_bert_sentences, False)
+
+    def unfreeze_bert(self, dropout=.15):
+        set_dropout(self.clinical_bert_sentences, dropout)
+        set_require_grad(self.clinical_bert_sentences, True)
 
     def correct_devices(self):
         self.clinical_bert_sentences.correct_devices()

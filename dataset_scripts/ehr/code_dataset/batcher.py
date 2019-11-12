@@ -33,6 +33,7 @@ class Instance(StandardInstance):
         for section in text:
             for sent in section.sents:
                 tokenized_sent = tokenizer.tokenize(sent.text)
+                if len(tokenized_sent) < 4: continue
                 if len(tokenized_sent) > 0:
                     tokenized_sentences.append([tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token])
         self.datapoint['article_sentences'] = pad_and_concat(

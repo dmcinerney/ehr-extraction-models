@@ -5,13 +5,14 @@ from pytt.iteration_info import BatchInfo as BI
 from .model import statistics_func
 
 def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
+    mask = (positives != 0) | (relevants != 0)
     if reduce == 'micro':
         true_positives, positives, relevants = true_positives.sum(), positives.sum(), relevants.sum()
     precision = (true_positives/positives).masked_fill(positives == 0, 0)
     recall = (true_positives/relevants).masked_fill(relevants == 0, 0)
     f1 = (2*precision*recall/(precision + recall)).masked_fill((precision+recall) == 0, 0)
     if reduce == 'macro':
-        precision, recall, f1 = precision.mean(), recall.mean(), f1.mean()
+        precision, recall, f1 = precision[mask].mean(), recall[mask].mean(), f1[mask].mean()
     return precision.item(), recall.item(), f1.item()
 
 class BatchInfo(BI):
@@ -88,9 +89,17 @@ class BatchInfo(BI):
         writer.add_histogram('scores_1', scores[labels==1], global_step)
 
 
-def get_batch_info_class(loss_func):
+def get_batch_info_test_class(loss_func):
     class BatchInfoTest(BatchInfo):
         def stats(self):
             results = super(BatchInfoTest, self).stats()
             return {'loss':loss_func(**self.batch_outputs), **results}
+
+        def write_to_tensorboard(self, *args, **kwargs):
+            super(BatchInfoTest, self).write_to_tensorboard(*args, **kwargs)
+            self.batch_outputs = {
+                'scores':self.batch_outputs['scores'][:0],
+                'labels':self.batch_outputs['labels'][:0],
+                'num_codes':self.batch_outputs['num_codes'][:0]}
+
     return BatchInfoTest

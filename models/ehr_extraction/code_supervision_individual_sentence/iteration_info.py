@@ -5,14 +5,14 @@ from pytt.iteration_info import BatchInfo as BI
 from .model import statistics_func
 
 def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
+    mask = (positives != 0) | (relevants != 0)
     if reduce == 'micro':
         true_positives, positives, relevants = true_positives.sum(), positives.sum(), relevants.sum()
     precision = (true_positives/positives).masked_fill(positives == 0, 0)
     recall = (true_positives/relevants).masked_fill(relevants == 0, 0)
     f1 = (2*precision*recall/(precision + recall)).masked_fill((precision+recall) == 0, 0)
     if reduce == 'macro':
-        precision, recall, f1 = precision.mean(), recall.mean(), f1.mean()
-    return precision.item(), recall.item(), f1.item()
+        precision, recall, f1 = precision[mask].mean(), recall[mask].mean(), f1[mask].mean()
 
 class BatchInfo(BI):
     def stats(self):

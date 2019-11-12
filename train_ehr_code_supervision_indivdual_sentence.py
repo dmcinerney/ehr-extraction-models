@@ -18,8 +18,8 @@ val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preproces
 code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
 save_checkpoint_folder = 'checkpoints/ehr_extraction_code_supervision_individual_sentence/checkpoint'
 #save_checkpoint_folder = None
-#load_checkpoint_folder = 'checkpoints/ehr_extraction_code_supervision_individual_sentence/checkpoint'
-load_checkpoint_folder = None
+load_checkpoint_folder = 'checkpoints/ehr_extraction_code_supervision_individual_sentence/checkpoint'
+#load_checkpoint_folder = None
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -29,7 +29,7 @@ def main(load_checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 8
     epochs = 1
-    device1 = 'cuda:%i' % (torch.distributed.get_rank() if torch.distributed.is_initialized() else 1)
+    device1 = 'cuda:%i' % (torch.distributed.get_rank() if torch.distributed.is_initialized() else 0)
     device2 = 'cpu'
     train_dataset = init_dataset(train_file)
     val_dataset = init_dataset(val_file)
@@ -55,7 +55,8 @@ def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is not None:
         optimizer.load_state_dict(torch.load(os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')))
     tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=10)
-    tracker.needs_graph = False
+    if load_checkpoint_folder is not None:
+        tracker.needs_graph = False
     trainer = Trainer(model, optimizer, batch_iterator, val_iterator=val_iterator, val_every=10, batch_info_class=BatchInfo, tracker=tracker)
     with torch.autograd.set_detect_anomaly(False):
         trainer.train(loss_func)
