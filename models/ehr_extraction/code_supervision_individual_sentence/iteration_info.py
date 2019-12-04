@@ -13,6 +13,7 @@ def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
     f1 = (2*precision*recall/(precision + recall)).masked_fill((precision+recall) == 0, 0)
     if reduce == 'macro':
         precision, recall, f1 = precision[mask].mean(), recall[mask].mean(), f1[mask].mean()
+    return precision.item(), recall.item(), f1.item()
 
 class BatchInfo(BI):
     def stats(self):
@@ -93,4 +94,11 @@ def get_batch_info_class(loss_func):
         def stats(self):
             results = super(BatchInfoTest, self).stats()
             return {'loss':loss_func(**self.batch_outputs), **results}
+
+        def filter(self):
+            self.batch_outputs = None
+            self.batch = None
+
+        def write_to_tensorboard(self, *args, **kwargs):
+            return
     return BatchInfoTest

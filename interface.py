@@ -3,35 +3,7 @@ from dataset_scripts.ehr.code_dataset.batcher import Batcher
 from pytt.utils import read_pickle
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
-model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence/checkpoint/model_state.tpkl'
 
-class FullModelInterface:
-    def __init__(self):
-        self.dp = DefaultProcessor(codes_file, model_file, 'code_supervision_individual_sentence')
-        #model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint4/model_state.tpkl'
-        #self.dp = DefaultProcessor(codes_file, model_file, 'code_supervision')
-
-    def get_queries(self):
-        return {k:self.dp.batcher.code_graph.nodes[k]['description']
-                if 'description' in self.dp.batcher.code_graph.nodes[k].keys() else ''
-                for k,v in self.dp.batcher.code_idxs.items()}
-
-    def query_text(self, text, query):
-        results = self.dp.process_datapoint(text, query).results
-        attention = results['attention'][0,0]
-        attention = attention/attention.max()
-        traceback_attention = results['traceback_attention'][0,0]
-        traceback_attention = traceback_attention/traceback_attention.max()
-        return {
-            'score':results['scores'].item(),
-            'heatmaps':{
-                'attention':[sent[:len(results['tokenized_text'][i])]
-                    for i,sent in enumerate(attention.tolist())],
-                'traceback_attention':[sent[:len(results['tokenized_text'][i])]
-                    for i,sent in enumerate(traceback_attention.tolist())],
-            },
-            'tokenized_text':results['tokenized_text']
-        }
 
 class TokenizerInterface:
     def __init__(self):
@@ -42,5 +14,45 @@ class TokenizerInterface:
                 if 'description' in self.batcher.code_graph.nodes[k].keys() else ''
                 for k,v in self.batcher.code_idxs.items()}
 
-    def tokenize(self, text):
-        return self.batcher.process_datapoint({'reports':text, 'targets':[]}).tokenized_sentences
+    def tokenize(self, reports):
+        instance = self.batcher.process_datapoint({'reports':reports, 'targets':[next(iter(self.get_queries().keys()))]})
+        return {
+            'tokenized_text':instance.tokenized_sentences,
+            'sentence_spans':instance.sentence_spans,
+            'original_reports':instance.raw_datapoint['reports']
+        }
+
+
+class FullModelInterface(TokenizerInterface):
+    def __init__(self):
+        self.dp = DefaultProcessor(codes_file, "code_supervision_description_only")
+        self.batcher = self.dp.batcher
+        #model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint4/model_state.tpkl'
+        #self.dp = DefaultProcessor(codes_file, model_file, 'code_supervision')
+
+    def takes_nl_queries(self):
+        return self.dp.takes_nl_queries()
+
+    def query_reports(self, reports, query, is_nl=False):
+        results = self.dp.process_datapoint(reports, query, is_nl=is_nl).results
+        attention = results['attention'][0,0]
+        sentence_level_attention = attention/(attention.sum(1, keepdim=True).max()+.0001)
+        attention = attention/attention.max()
+        traceback_attention = results['traceback_attention'][0,0]
+        traceback_attention = traceback_attention/traceback_attention.max()
+        return_dict = {
+            'heatmaps':{
+                'attention':[sent[:len(results['tokenized_text'][i])]
+                    for i,sent in enumerate(attention.tolist())],
+                'traceback_attention':[sent[:len(results['tokenized_text'][i])]
+                    for i,sent in enumerate(traceback_attention.tolist())],
+                'sentence_level_attention':[sent[:len(results['tokenized_text'][i])]
+                    for i,sent in enumerate(sentence_level_attention.tolist())],
+            },
+            'tokenized_text':results['tokenized_text'],
+            'sentence_spans':results['sentence_spans'],
+            'original_reports':results['original_reports']
+        }
+        if 'scores' in results.keys():
+            return_dict['score'] = results['scores'].item()
+        return return_dict

@@ -11,7 +11,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.device1 = device1
         self.device2 = device2
-        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, conditioned_pool=False, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
+        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
             set_dropout(self.clinical_bert_sentences, 0)
             set_require_grad(self.clinical_bert_sentences, False)

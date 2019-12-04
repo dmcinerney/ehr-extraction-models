@@ -95,7 +95,12 @@ def get_batch_info_test_class(loss_func):
             results = super(BatchInfoTest, self).stats()
             return {'loss':loss_func(**self.batch_outputs), **results}
 
+        def filter(self):
+            self.batch_outputs = None
+            self.batch = None
+
         def write_to_tensorboard(self, *args, **kwargs):
+            return
             super(BatchInfoTest, self).write_to_tensorboard(*args, **kwargs)
             self.batch_outputs = {
                 'scores':self.batch_outputs['scores'][:0],

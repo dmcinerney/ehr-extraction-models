@@ -9,7 +9,7 @@ class Model(nn.Module):
     def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, reduce_code_embeddings=False):
         super(Model, self).__init__()
         self.num_codes = num_codes
-        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, conditioned_pool=False, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
+        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
             self.freeze_bert()
         else:
@@ -40,8 +40,10 @@ class Model(nn.Module):
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None):
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
-        article_sentences_lengths, codes, num_codes, encodings, self_attentions, word_level_attentions =\
-            article_sentences_lengths.to(self.device2), codes.to(self.device2), num_codes.to(self.device2), encodings.to(self.device2), self_attentions.to(self.device2), word_level_attentions.to(self.device2)
+        article_sentences_lengths, num_codes, encodings, self_attentions, word_level_attentions =\
+            article_sentences_lengths.to(self.device2), num_codes.to(self.device2), encodings.to(self.device2), self_attentions.to(self.device2), word_level_attentions.to(self.device2)
+        if codes is not None:
+            codes = codes.to(self.device2)
         # b, ns, nt = word_level_attentions.shape
         b, ns, nl, nh, nt, _ = self_attentions.shape
         traceback_word_level_attentions = ta(

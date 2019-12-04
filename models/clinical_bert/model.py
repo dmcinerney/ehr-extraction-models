@@ -21,7 +21,7 @@ class ClinicalBertWrapper(nn.Module):
         return encodings, self_attentions
 
 class ClinicalBertSentences(nn.Module):
-    def __init__(self, embedding_dim=None, conditioned_pool=False, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10, device='cpu'):
+    def __init__(self, embedding_dim=None, pool_type=None, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10, device='cpu'):
         super(ClinicalBertSentences, self).__init__()
         self.clinical_bert_wrapper = ClinicalBertWrapper()
         self.device = device
@@ -29,8 +29,8 @@ class ClinicalBertSentences(nn.Module):
         self.embedding_dim = embedding_dim
         if embedding_dim is not None:
             self.linear = nn.Linear(outdim, embedding_dim)
-        self.conditioned_pool = conditioned_pool
-        if self.conditioned_pool:
+        self.pool_type = pool_type
+        if self.pool_type == "conditioned_attention":
             self.attention = nn.MultiheadAttention(embedding_dim, 1)
         self.truncate_sentences = truncate_sentences
         self.truncate_tokens = truncate_tokens
@@ -68,7 +68,10 @@ class ClinicalBertSentences(nn.Module):
             else:
                 encodings_temp, self_attentions_temp = results
                 word_level_attentions_temp = torch.zeros((b*actual_ns, nt), device=encodings_temp.device)
-                word_level_attentions_temp[:, 0] = 1
+                if self.pool_type == "mean":
+                    word_level_attentions_temp[:, :] = mask_temp.reshape(b*actual_ns, nt).float()/mask_temp.reshape(b*actual_ns, nt).sum(1, keepdim=True)
+                else:
+                    word_level_attentions_temp[:, 0] = 1
             encodings.append(encodings_temp.view(b, actual_ns, -1))
             nl, nh = self_attentions_temp.shape[1:3]
             self_attentions.append(self_attentions_temp.view(b, actual_ns, nl, nh, nt, nt))
@@ -81,13 +84,24 @@ class ClinicalBertSentences(nn.Module):
     def run_checkpointed_clinical_bert(self, token_ids, attention_mask, conditioning, *args):
         token_ids, attention_mask, conditioning = token_ids.to(self.device), attention_mask.to(self.device), conditioning.to(self.device)
         encodings, self_attentions = self.clinical_bert_wrapper(token_ids, attention_mask)
-        if self.conditioned_pool and conditioning.size(0) != 0:
+        if self.pool_type == "conditioned_attention":
+            if conditioning.size(0) == 0:
+                raise Exception
             if self.embedding_dim is not None:
                 encodings = self.linear(encodings)
             encodings, word_level_attentions = self.attention(conditioning.unsqueeze(0), encodings.transpose(0, 1), encodings.transpose(0, 1))
             encodings = encodings.squeeze(0)
             word_level_attentions.squeeze(1)
             return encodings, self_attentions, word_level_attentions
+        elif self.pool_type == "mean":
+            if conditioning.size(0) != 0:
+                raise Exception
+            encodings = encodings.mean(1)
+            if self.embedding_dim is not None:
+                encodings = self.linear(encodings)
+            # need to push making word_level_attentions (1 on the first element of the sentences)
+            # until after checkpoint because it won't have a gradient
+            return encodings, self_attentions
         else:
             if conditioning.size(0) != 0:
                 raise Exception
