@@ -4,7 +4,6 @@ from pytt.utils import read_pickle
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
 
-
 class TokenizerInterface:
     def __init__(self):
         self.batcher = Batcher(read_pickle(codes_file))
@@ -25,7 +24,7 @@ class TokenizerInterface:
 
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
-        self.dp = DefaultProcessor(codes_file, "code_supervision_description_only")
+        self.dp = DefaultProcessor("code_supervision_only_description")
         self.batcher = self.dp.batcher
         #model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint4/model_state.tpkl'
         #self.dp = DefaultProcessor(codes_file, model_file, 'code_supervision')
@@ -36,10 +35,11 @@ class FullModelInterface(TokenizerInterface):
     def query_reports(self, reports, query, is_nl=False):
         results = self.dp.process_datapoint(reports, query, is_nl=is_nl).results
         attention = results['attention'][0,0]
-        sentence_level_attention = attention/(attention.sum(1, keepdim=True).max()+.0001)
-        attention = attention/attention.max()
+        min_avged = attention.sum(1, keepdim=True).min()/attention.size(1)
+        sentence_level_attention = (attention-min_avged)/(attention.sum(1, keepdim=True).max()+.0001-min_avged)
+        attention = (attention-attention.min())/(attention.max()-attention.min())
         traceback_attention = results['traceback_attention'][0,0]
-        traceback_attention = traceback_attention/traceback_attention.max()
+        traceback_attention = (traceback_attention-traceback_attention.min())/(traceback_attention.max()-traceback_attention.min())
         return_dict = {
             'heatmaps':{
                 'attention':[sent[:len(results['tokenized_text'][i])]

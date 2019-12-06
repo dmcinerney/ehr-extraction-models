@@ -89,7 +89,7 @@ class BatchInfo(BI):
         writer.add_histogram('scores_1', scores[labels==1], global_step)
 
 
-def get_batch_info_class(loss_func):
+def get_batch_info_test_class(loss_func):
     class BatchInfoTest(BatchInfo):
         def stats(self):
             results = super(BatchInfoTest, self).stats()
