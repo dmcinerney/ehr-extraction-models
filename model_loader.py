@@ -13,6 +13,7 @@ from pytt.utils import read_pickle
 
 code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
 
+
 model_components = {
     'code_supervision': {
         'batcher_class': lambda num_codes: Batcher(num_codes),
@@ -34,8 +35,8 @@ model_components = {
             'applications': BIT_fordp}},
     'code_supervision_with_description_unfrozen': {
         'batcher_class': lambda num_codes: Batcher(num_codes, instance_type='with_description'),
-        'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=True),
-        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.0001),
+        'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=True, dropout=0),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
         'batch_info_classes': {
             'training': BI,
@@ -45,6 +46,15 @@ model_components = {
         'batcher_class': lambda num_codes: Batcher(num_codes, instance_type='only_description'),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=False),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
+        'loss_func': loss_func,
+        'batch_info_classes': {
+            'training': BI,
+            'testing': BIT,
+            'applications': BIT_fordp}},
+    'code_supervision_only_description_unfrozen': {
+        'batcher_class': lambda num_codes: Batcher(num_codes, instance_type='only_description'),
+        'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=False, dropout=0),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
         'batch_info_classes': {
             'training': BI,

@@ -6,14 +6,14 @@ from utils import traceback_attention as ta, entropy, set_dropout, set_require_g
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, reduce_code_embeddings=False):
+    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, reduce_code_embeddings=False, dropout=.15):
         super(Model, self).__init__()
         self.num_codes = num_codes
         self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
             self.freeze_bert()
         else:
-            self.unfreeze_bert()
+            self.unfreeze_bert(dropout=dropout)
         self.code_embeddings = nn.Embedding(num_codes, outdim)
         self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)

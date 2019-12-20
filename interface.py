@@ -24,16 +24,18 @@ class TokenizerInterface:
 
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
-        self.dp = DefaultProcessor("code_supervision_only_description")
-        self.batcher = self.dp.batcher
-        #model_file = '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/checkpoint4/model_state.tpkl'
-        #self.dp = DefaultProcessor(codes_file, model_file, 'code_supervision')
+        super(FullModelInterface, self).__init__()
+        self.models = ["code_supervision_only_description", "code_supervision_only_description_unfrozen"]
+        self.dps = {k:DefaultProcessor(k) for k in self.models}
 
     def takes_nl_queries(self):
         return self.dp.takes_nl_queries()
 
-    def query_reports(self, reports, query, is_nl=False):
-        results = self.dp.process_datapoint(reports, query, is_nl=is_nl).results
+    def get_models(self):
+        return self.models
+
+    def query_reports(self, reports, query, is_nl=False, model=None):
+        results = self.dps[model].process_datapoint(reports, query, is_nl=is_nl).results
         attention = results['attention'][0,0]
         min_avged = attention.sum(1, keepdim=True).min()/attention.size(1)
         sentence_level_attention = (attention-min_avged)/(attention.sum(1, keepdim=True).max()+.0001-min_avged)

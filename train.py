@@ -11,11 +11,11 @@ from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
 
-train_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/train.data'
-val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val.data'
-model_type = 'code_supervision_with_description_unfrozen'
-save_checkpoint_folder = 'checkpoints/final_runs/code_supervision_with_description_unfrozen'
-load_checkpoint_folder = 'checkpoints/final_runs/code_supervision_with_description'
+train_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_old/train.data'
+val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_old/val.data'
+model_type = 'code_supervision_only_description_unfrozen'
+save_checkpoint_folder = 'checkpoints/final_runs/code_supervision_only_description_unfrozen'
+load_checkpoint_folder = None
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -38,7 +38,7 @@ def main(load_checkpoint_folder=None):
         val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
         val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
-    batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, device=device, model_file=model_file, optimizer_file=optimizer_file)
+    batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, device=device, model_file=model_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=4) #, num_workers=4)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():

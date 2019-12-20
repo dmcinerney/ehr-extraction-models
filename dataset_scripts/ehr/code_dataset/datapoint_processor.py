@@ -2,8 +2,9 @@ from pytt.testing.raw_individual_processor import RawIndividualProcessor
 from model_loader import load_model_components
 
 model_files = {
-    'code_supervision_with_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/aligned/model_state.tpkl',
+    'code_supervision_with_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description/model_state.tpkl',
     'code_supervision_only_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only/model_state.tpkl',
+    'code_supervision_only_description_unfrozen': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen/model_state.tpkl',
     'code_supervision_individual_sentence': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence/checkpoint/model_state.tpkl',
     'cosine_similarity': None,
 }
