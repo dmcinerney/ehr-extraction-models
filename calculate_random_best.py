@@ -1,7 +1,7 @@
 from pytt.utils import read_pickle
 
 counts_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/counts.pkl'
-rebalanced = False
+rebalanced = True
 threshold = 50
 
 counts = read_pickle(counts_file)

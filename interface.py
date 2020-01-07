@@ -1,40 +1,59 @@
+import os
 from dataset_scripts.ehr.code_dataset.datapoint_processor import DefaultProcessor
 from dataset_scripts.ehr.code_dataset.batcher import Batcher
 from pytt.utils import read_pickle
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
+model_dirs = {
+    'code_supervision_with_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description',
+    'code_supervision_only_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only',
+    'code_supervision_only_description_unfrozen': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen',
+    'code_supervision_individual_sentence': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence',
+    'cosine_similarity': None,
+}
 
 class TokenizerInterface:
     def __init__(self):
         self.batcher = Batcher(read_pickle(codes_file))
 
-    def get_queries(self):
+    def get_descriptions(self):
         return {k:self.batcher.code_graph.nodes[k]['description']
                 if 'description' in self.batcher.code_graph.nodes[k].keys() else ''
-                for k,v in self.batcher.code_idxs.items()}
+                for k,v in self.batcher.code_idxs.items()
+                if k != ""}
 
     def tokenize(self, reports):
-        instance = self.batcher.process_datapoint({'reports':reports, 'targets':[next(iter(self.get_queries().keys()))]})
+        instance = self.batcher.process_datapoint({'reports':reports, 'targets':[next(iter(self.get_descriptions().keys()))]})
         return {
             'tokenized_text':instance.tokenized_sentences,
             'sentence_spans':instance.sentence_spans,
             'original_reports':instance.raw_datapoint['reports']
         }
 
+def get_valid_queries(file):
+    if os.path.exists(file):
+        with open(file, 'r') as f:
+            return eval(f.read())
+    else:
+        return None
 
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
-        self.models = ["code_supervision_only_description", "code_supervision_only_description_unfrozen"]
-        self.dps = {k:DefaultProcessor(k) for k in self.models}
+        self.models = ["code_supervision_with_description", "code_supervision_only_description", "code_supervision_only_description_unfrozen"]
+        self.dps = {k:DefaultProcessor(k, os.path.join(model_dirs[k], 'model_state.tpkl')) for k in self.models}
+        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k], 'used_targets.txt')) for k in self.models}
 
-    def takes_nl_queries(self):
-        return self.dp.takes_nl_queries()
+    def get_valid_queries(self, model):
+        return self.valid_queries[model]
+
+    def with_custom(self, model):
+        return self.dps[model].takes_nl_queries()
 
     def get_models(self):
         return self.models
 
-    def query_reports(self, reports, query, is_nl=False, model=None):
+    def query_reports(self, model, reports, query, is_nl=False):
         results = self.dps[model].process_datapoint(reports, query, is_nl=is_nl).results
         attention = results['attention'][0,0]
         min_avged = attention.sum(1, keepdim=True).min()/attention.size(1)

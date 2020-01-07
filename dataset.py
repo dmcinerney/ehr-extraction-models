@@ -7,13 +7,14 @@ class Dataset(RawDataset):
 
     def __getitem__(self, i):
         dictionary = super(Dataset, self).__getitem__(i)
-        dictionary['reports'] = pd.DataFrame(dictionary['reports'])
-        if dictionary['reports'].empty: import pdb; pdb.set_trace()
+        dictionary['reports'] = pd.DataFrame(eval(dictionary['reports']))
         dictionary['reports']['date'] = pd.to_datetime(dictionary['reports']['date'])
+        dictionary['targets'] = eval(dictionary['targets'])
+        dictionary['labels'] = eval(dictionary['labels'])
         return dictionary
 
 def init_dataset(filename):
-    df = pd.read_json(filename, lines=True, compression='gzip')
+    df = pd.read_csv(filename, compression='gzip')
     return Dataset(df)
 
 def split_dataset(filename, split=.9):

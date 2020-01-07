@@ -24,6 +24,15 @@ model_components = {
             'training': BI,
             'testing': BIT,
             'applications': BIT_fordp}},
+    'code_supervision_unfrozen': {
+        'batcher_class': lambda num_codes: Batcher(num_codes),
+        'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=False, dropout=0),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
+        'loss_func': loss_func,
+        'batch_info_classes': {
+            'training': BI,
+            'testing': BIT,
+            'applications': BIT_fordp}},
     'code_supervision_with_description': {
         'batcher_class': lambda num_codes: Batcher(num_codes, instance_type='with_description'),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=True),
