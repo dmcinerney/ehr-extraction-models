@@ -13,16 +13,17 @@ from fairseq.legacy_distributed_data_parallel\
 from model_loader import load_model_components
 from shutil import copyfile
 
-data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes'
+data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
-model_type = 'code_supervision_unfrozen'
-save_checkpoint_folder = 'checkpoints2/code_supervision_unfrozen2'
-load_checkpoint_folder = 'checkpoints2/code_supervision'
-#model_type = 'code_supervision'
-#save_checkpoint_folder = 'checkpoints2/code_supervision'
-#load_checkpoint_folder = None
+#model_type = 'code_supervision_unfrozen'
+#save_checkpoint_folder = 'checkpoints2/code_supervision_unfrozen2'
+#load_checkpoint_folder = 'checkpoints2/code_supervision'
+model_type = 'code_supervision_only_description'
+save_checkpoint_folder = 'checkpoints2/code_supervision_only_description'
+load_checkpoint_folder = None
+device = 'cuda:0'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -32,7 +33,6 @@ def main(load_checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 8
     epochs = 2
-    device = 'cuda:0'
     train_dataset = init_dataset(train_file)
     val_dataset = init_dataset(val_file)
     if load_checkpoint_folder is None:

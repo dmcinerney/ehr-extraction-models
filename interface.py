@@ -2,14 +2,18 @@ import os
 from dataset_scripts.ehr.code_dataset.datapoint_processor import DefaultProcessor
 from dataset_scripts.ehr.code_dataset.batcher import Batcher
 from pytt.utils import read_pickle
+from utils import get_valid_queries
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
 model_dirs = {
-    'code_supervision_with_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description',
-    'code_supervision_only_description': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only',
-    'code_supervision_only_description_unfrozen': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen',
-    'code_supervision_individual_sentence': '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence',
-    'cosine_similarity': None,
+    'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision'),
+    'code_supervision_unfrozen': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen'),
+    'code_supervision_unfrozen2': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen2'),
+    'code_supervision_with_description': ('code_supervision_with_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description'),
+    'code_supervision_only_description': ('code_supervision_only_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only'),
+    'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen'),
+    'code_supervision_individual_sentence': ('code_supervision_individual_sentence', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence'),
+    'cosine_similarity': ('cosine_similarity', None),
 }
 
 class TokenizerInterface:
@@ -30,19 +34,12 @@ class TokenizerInterface:
             'original_reports':instance.raw_datapoint['reports']
         }
 
-def get_valid_queries(file):
-    if os.path.exists(file):
-        with open(file, 'r') as f:
-            return eval(f.read())
-    else:
-        return None
-
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
-        self.models = ["code_supervision_with_description", "code_supervision_only_description", "code_supervision_only_description_unfrozen"]
-        self.dps = {k:DefaultProcessor(k, os.path.join(model_dirs[k], 'model_state.tpkl')) for k in self.models}
-        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k], 'used_targets.txt')) for k in self.models}
+        self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
+        self.dps = {k:DefaultProcessor(model_dirs[k][0], os.path.join(model_dirs[k][1], 'model_state.tpkl')) for k in self.models}
+        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt')) for k in self.models}
 
     def get_valid_queries(self, model):
         return self.valid_queries[model]

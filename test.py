@@ -11,9 +11,9 @@ from fairseq.legacy_distributed_data_parallel\
 from model_loader import load_model_components
 
 val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/val.data'
-model_type = 'code_supervision'
-load_checkpoint_folder = 'checkpoints2/code_supervision'
-
+model_type = 'code_supervision_unfrozen'
+load_checkpoint_folder = 'checkpoints2/code_supervision_unfrozen'
+device = 'cuda:1'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -21,7 +21,6 @@ def main(load_checkpoint_folder=None):
     else:
         set_random_state(read_pickle(os.path.join(load_checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
-    device = 'cuda:1'
     batch_size = 8
     val_dataset = init_dataset(val_file)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)

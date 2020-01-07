@@ -1,16 +1,20 @@
+import os
 from pytt.utils import read_pickle
+from utils import get_valid_queries
 
-counts_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes/counts.pkl'
+dataset = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes'
 rebalanced = True
-threshold = 50
+counts_file = os.path.join(dataset, 'counts.pkl')
+used_targets_file = os.path.join(dataset, 'used_targets.txt')
 
+used_targets = get_valid_queries(used_targets_file)
 counts = read_pickle(counts_file)
 
 micro_counts = [[], [], []]
 macro_scores = [[], [], []]
 
 for k,v in counts.items():
-    if v[0] < threshold or v[1] < threshold: continue
+    if k not in used_targets: continue
     total = v[0]+v[1]
     true_positives = v[1]/2 if rebalanced else v[1]*v[1]/total
     micro_counts[0] += [true_positives]
