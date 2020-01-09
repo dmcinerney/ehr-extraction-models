@@ -13,7 +13,6 @@ from pytt.utils import read_pickle
 
 code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
 
-
 model_components = {
     'code_supervision': {
         'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True),
@@ -52,7 +51,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_only_description': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph: Batcher(code_graph, sample_top=100, ancestors=True, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=False),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func,

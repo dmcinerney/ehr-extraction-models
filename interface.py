@@ -4,7 +4,7 @@ from dataset_scripts.ehr.code_dataset.batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
-codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
+codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
 model_dirs = {
     'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision'),
     'code_supervision_unfrozen': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen'),
@@ -26,12 +26,21 @@ class TokenizerInterface:
                 for k,v in self.batcher.code_idxs.items()
                 if k != ""}
 
-    def tokenize(self, reports):
-        instance = self.batcher.process_datapoint({'reports':reports, 'targets':[next(iter(self.get_descriptions().keys()))]})
+    def tokenize(self, reports, num_sentences='default'):
+        raw_datapoint = {'reports':reports, 'targets':[next(iter(self.get_descriptions().keys()))]}
+        if num_sentences != 'default':
+           raw_datapoint['num_sentences'] = num_sentences
+        instance = self.batcher.process_datapoint(raw_datapoint)
+        sentence_spans = instance.sentence_spans
+        original_reports = instance.raw_datapoint['reports']
+        for i in range(len(sentence_spans)-1, -1, -1):
+            if len(sentence_spans[i]) == 0:
+                del sentence_spans[i]
+                original_reports = original_reports.drop(original_reports.index[i])
         return {
             'tokenized_text':instance.tokenized_sentences,
-            'sentence_spans':instance.sentence_spans,
-            'original_reports':instance.raw_datapoint['reports']
+            'sentence_spans':sentence_spans,
+            'original_reports':original_reports
         }
 
 class FullModelInterface(TokenizerInterface):
@@ -67,9 +76,6 @@ class FullModelInterface(TokenizerInterface):
                 'sentence_level_attention':[sent[:len(results['tokenized_text'][i])]
                     for i,sent in enumerate(sentence_level_attention.tolist())],
             },
-            'tokenized_text':results['tokenized_text'],
-            'sentence_spans':results['sentence_spans'],
-            'original_reports':results['original_reports']
         }
         if 'scores' in results.keys():
             return_dict['score'] = results['scores'].item()

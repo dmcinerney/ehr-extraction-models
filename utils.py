@@ -73,3 +73,15 @@ def get_valid_queries(file):
     if os.path.exists(file):
         with open(file, 'r') as f:
             return eval(f.read())
+
+def none_to_tensor(v):
+    if v is None:
+        return torch.zeros(0)
+    else:
+        return v
+
+def tensor_to_none(t):
+    if t.dim() == 1 and t.size(0) == 0:
+        return None
+    else:
+        return t

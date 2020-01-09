@@ -1,8 +1,9 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 from models.clinical_bert.model import ClinicalBertSentences
-from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts
+from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts, none_to_tensor, tensor_to_none
 
 
 class Model(nn.Module):
@@ -36,8 +37,52 @@ class Model(nn.Module):
         self.linear.to(self.device2)
         if self.linear2 is not None:
             self.linear2.to(self.device2)
+        self.codes_per_checkpoint = 1000
 
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None):
+        nq = num_codes.max()
+        nq_temp =  self.codes_per_checkpoint
+        scores, attention, traceback_attention = [], [], []
+        for offset in range(0, nq, nq_temp):
+            if codes is not None:
+                codes_temp = codes[:, offset:offset+nq_temp]
+            else:
+                codes_temp = torch.zeros(0)
+            if code_description is not None:
+                code_description_temp = code_description[:, offset:offset+nq_temp]
+                code_description_length_temp = code_description_length[:, offset:offset+nq_temp]
+            else:
+                code_description_temp = torch.zeros(0)
+                code_description_length_temp = torch.zeros(0)
+            num_codes_temp = torch.clamp(num_codes-offset, 0, nq_temp)
+            scores_temp, attention_temp, traceback_attention_temp = checkpoint(
+                self.inner_forward,
+                article_sentences,
+                article_sentences_lengths,
+                num_codes_temp,
+                codes_temp,
+                code_description_temp,
+                code_description_length_temp,
+                *self.parameters())
+            scores.append(scores_temp)
+            attention.append(attention_temp)
+            traceback_attention.append(traceback_attention_temp)
+        scores = torch.cat(scores, 1)
+        attention = torch.cat(attention, 1)
+        traceback_attention = torch.cat(traceback_attention, 1)
+        return_dict = dict(
+            scores=scores,
+            num_codes=num_codes,
+            total_num_codes=torch.tensor(self.num_codes),
+            attention=attention,
+            traceback_attention=traceback_attention,
+            article_sentences_lengths=article_sentences_lengths)
+        if codes is not None:
+            return_dict['codes'] = codes
+        return return_dict
+
+    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, *args):
+        codes, code_description, code_description_length = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length)
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
         article_sentences_lengths, num_codes, encodings, self_attentions, word_level_attentions =\
@@ -54,7 +99,10 @@ class Model(nn.Module):
         if codes is not None:
             code_embeddings = self.code_embeddings(codes)
         if code_description is not None:
-            code_description_embeddings = self.clinical_bert_sentences(code_description, code_description_length)[0].to(self.device2)
+            code_description_embeddings = self.clinical_bert_sentences(
+                code_description,
+                code_description_length,
+            )[0].to(self.device2)
         if codes is not None and code_description is not None:
             code_embeddings = torch.cat((code_embeddings, code_description_embeddings), 2)
             code_embeddings = self.linear2(code_embeddings)
@@ -72,16 +120,7 @@ class Model(nn.Module):
         attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
         traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
         scores = self.linear(encoding)
-        return_dict = dict(
-            scores=scores.transpose(0, 1).squeeze(2),
-            num_codes=num_codes,
-            total_num_codes=torch.tensor(self.num_codes),
-            attention=attention,
-            traceback_attention=traceback_attention,
-            article_sentences_lengths=article_sentences_lengths)
-        if codes is not None:
-            return_dict['codes'] = codes
-        return return_dict
+        return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
 
 def loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape

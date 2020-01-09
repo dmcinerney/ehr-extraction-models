@@ -21,7 +21,7 @@ used_targets_file = os.path.join(data_dir, 'used_targets.txt')
 #save_checkpoint_folder = 'checkpoints2/code_supervision_unfrozen2'
 #load_checkpoint_folder = 'checkpoints2/code_supervision'
 model_type = 'code_supervision_only_description'
-save_checkpoint_folder = 'checkpoints2/code_supervision_only_description'
+save_checkpoint_folder = 'checkpoints3/code_supervision_only_description'
 load_checkpoint_folder = None
 device = 'cuda:0'
 
@@ -46,7 +46,7 @@ def main(load_checkpoint_folder=None):
         val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
     batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, device=device, model_file=model_file) #, optimizer_file=optimizer_file)
-    batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=4, num_workers=4)
+    batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=4) #, num_workers=4)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
