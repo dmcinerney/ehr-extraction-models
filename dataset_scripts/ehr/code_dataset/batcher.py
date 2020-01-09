@@ -1,4 +1,5 @@
 import random
+import copy
 import torch
 from transformers import BertTokenizer
 from pytt.batching.standard_batcher import StandardBatcher,\
@@ -11,7 +12,7 @@ nlp = spacy.load('en_core_web_sm')
 
 class Batcher(StandardBatcher):
     def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None):
-        self.code_graph = code_graph
+        self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
         self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
         self.ancestors = ancestors
@@ -24,7 +25,7 @@ class Batcher(StandardBatcher):
         return Instance(raw_datapoint,
                         self.tokenizer,
                         self.code_idxs,
-                        self.code_graph,
+                        self.graph_ops,
                         ancestors=self.ancestors,
                         code_id=self.code_id,
                         code_description=self.code_description,
@@ -50,7 +51,7 @@ def process_reports(tokenizer, reports_df, num_sentences=None):
             if num_sentences is not None and sentence_count >= abs(num_sentences):
                 break
             tokenized_sent = tokenizer.tokenize(sent.text)
-            if len(tokenized_sent) > 0:
+            if len(tokenized_sent) > 4: # NOTE THIS IS HARDCODED
                 append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token])
                 append_func(report_sentence_spans, (sent.start_char, sent.end_char))
                 sentence_count += 1
@@ -75,8 +76,56 @@ def get_pos_neg(targets, labels):
 def get_targets_labels(pos, neg):
     return pos + neg, [1]*len(pos) + [0]*len(neg)
 
+class GraphOps:
+    # ASSUMES THE GRAPH IS A DAG WITH ONLY ONE NODE OF IN_DEGREE 0!
+    def __init__(self, graph):
+        self.graph = graph
+        self.node_option_idx = {}
+        self.node_idx_option = {}
+        self.max_index = -1
+        for n in self.graph.nodes:
+            if self.graph.in_degree(n) == 0:
+                self.start_node = n
+            if self.graph.out_degree(n) > 0:
+                self.node_idx_option[n] = []
+                for i,succ in enumerate(self.graph.successors(n)):
+                    self.node_option_idx[succ] = i
+                    self.node_idx_option[n].append(succ)
+                    self.max_index = max(self.max_index, i)
+
+    def ancestors(self, nodes, stop_nodes=None):
+        nodes = copy.deepcopy(nodes)
+        for node in nodes:
+            if self.graph.in_degree(node) > 0:
+                pred = next(iter(self.graph.predecessors(node)))
+                if pred in nodes\
+                   or self.graph.in_degree(pred) == 0\
+                   or (stop_nodes is not None and pred in stop_nodes):
+                    # already added
+                    # or hit the starting node
+                    # or hit a stop node
+                    continue
+                nodes.append(pred)
+        return nodes
+
+    def get_descriptions(self, nodes):
+        return [self.graph.nodes[node]['description'] if 'description' in self.graph.nodes[node].keys() else 'none' for node in nodes]
+
+    def linearize(self, node):
+        backwards_options = []
+        while self.graph.in_degree(node) > 0:
+            backwards_options.append(self.node_option_idx[node])
+            node = next(iter(self.graph.predecessors(node)))
+        return list(reversed(backwards_options))
+
+    def delinearize(self, linearized_node):
+        node = self.start_node
+        for i in linearized_node:
+            node = self.node_idx_option[node][i]
+        return node
+
 class Instance(StandardInstance):
-    def __init__(self, raw_datapoint, tokenizer, codes, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None):
+    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None):
         self.raw_datapoint = raw_datapoint
         self.datapoint = {}
         self.observed = []
@@ -102,12 +151,8 @@ class Instance(StandardInstance):
                 if ancestors or sample_top is not None:
                     positives, negatives = get_pos_neg(targets, labels)
                 if ancestors:
-                    for target in positives:
-                        preds = list(code_graph.predecessors(target))
-                        if len(preds) > 0:
-                            pred = next(iter(code_graph.predecessors(target)))
-                            if pred not in positives:
-                                positives.append(pred)
+                    positives = graph_ops.ancestors(positives)
+                    negatives = graph_ops.ancestors(negatives, stop_nodes=positives)
                 if sample_top is not None:
                     num_pos_samples = min(len(positives), sample_top/2)
                     positives = random.sample(positives, num_pos_samples)
@@ -132,7 +177,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = [code_graph.nodes[code_str]['description'] if 'description' in code_graph.nodes[code_str].keys() else 'none' for code_str in targets]
+                descriptions = graph_ops.get_descriptions(targets)
             else:
                 descriptions = raw_datapoint['queries']
                 # if targets were not given, you still need num_codes
@@ -149,7 +194,11 @@ class Instance(StandardInstance):
             # needs targets
             if 'targets' not in raw_datapoint.keys():
                 raise Exception
-            raise NotImplementedError
+            linearized_codes = [graph_ops.linearize(target) for target in targets]
+            self.datapoint['linearized_codes'] = pad_and_concat(
+                [torch.tensor(linearized_code) for linearized_code in linearized_codes])
+            self.datapoint['linearized_codes_lengths'] = torch.tensor(
+                [len(linearized_code) for linearized_code in linearized_codes])
 
     def keep_in_batch(self):
         return {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}

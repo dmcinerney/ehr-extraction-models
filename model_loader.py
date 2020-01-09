@@ -84,7 +84,7 @@ model_components = {
 
 def load_model_components(model_name, code_graph_file, run_type='training', device='cpu', model_file=None, optimizer_file=None):
     batcher = model_components[model_name]['batcher_class'](read_pickle(code_graph_file), run_type)
-    model = model_components[model_name]['model_class'](device, len(batcher.code_graph.nodes), sentences_per_checkpoint=17)
+    model = model_components[model_name]['model_class'](device, len(batcher.code_idxs), sentences_per_checkpoint=17)
     if model_file is not None:
         model.load_state_dict(torch.load(model_file, map_location='cpu'))
     model.correct_devices()

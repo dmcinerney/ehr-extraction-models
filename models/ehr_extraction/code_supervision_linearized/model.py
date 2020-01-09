@@ -39,30 +39,19 @@ class Model(nn.Module):
             self.linear2.to(self.device2)
         self.codes_per_checkpoint = 1000
 
-    def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None):
+    def forward(self, article_sentences, article_sentences_lengths, num_codes, linearized_codes, linearized_codes_lengths):
         nq = num_codes.max()
         nq_temp =  self.codes_per_checkpoint
         scores, attention, traceback_attention = [], [], []
         for offset in range(0, nq, nq_temp):
-            if codes is not None:
-                codes_temp = codes[:, offset:offset+nq_temp]
-            else:
-                codes_temp = torch.zeros(0)
-            if code_description is not None:
-                code_description_temp = code_description[:, offset:offset+nq_temp]
-                code_description_length_temp = code_description_length[:, offset:offset+nq_temp]
-            else:
-                code_description_temp = torch.zeros(0)
-                code_description_length_temp = torch.zeros(0)
             num_codes_temp = torch.clamp(num_codes-offset, 0, nq_temp)
             scores_temp, attention_temp, traceback_attention_temp = checkpoint(
                 self.inner_forward,
                 article_sentences,
                 article_sentences_lengths,
                 num_codes_temp,
-                codes_temp,
-                code_description_temp,
-                code_description_length_temp,
+                linearized_codes[:, offset:offset+nq_temp],
+                linearized_codes_lengths[:, offset:offset+nq_temp],
                 *self.parameters())
             scores.append(scores_temp)
             attention.append(attention_temp)
@@ -81,8 +70,7 @@ class Model(nn.Module):
             return_dict['codes'] = codes
         return return_dict
 
-    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, *args):
-        codes, code_description, code_description_length = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length)
+    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, linearized_codes, linearized_codes_lengths, *args):
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
         article_sentences_lengths, num_codes, encodings, self_attentions, word_level_attentions =\
@@ -93,15 +81,10 @@ class Model(nn.Module):
             self_attentions.mean(3).view(b*ns, nl, nt, nt),
             attention_vecs=word_level_attentions.view(b*ns, 1, nt))\
             .view(b, ns, nt)
-        if codes is None and code_description is None: raise Exception
-        if codes is not None:
-            codes = codes.to(self.device2)
-            code_embeddings = self.code_embeddings(codes)
-        if code_description is not None:
-            code_description_embeddings = self.clinical_bert_sentences(
-                code_description,
-                code_description_length,
-            )[0].to(self.device2)
+        code_description_embeddings = self.clinical_bert_sentences(
+            code_description,
+            code_description_length,
+        )[0].to(self.device2)
         if codes is not None and code_description is not None:
             code_embeddings = torch.cat((code_embeddings, code_description_embeddings), 2)
             code_embeddings = self.linear2(code_embeddings)

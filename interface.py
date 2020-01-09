@@ -21,8 +21,8 @@ class TokenizerInterface:
         self.batcher = Batcher(read_pickle(codes_file))
 
     def get_descriptions(self):
-        return {k:self.batcher.code_graph.nodes[k]['description']
-                if 'description' in self.batcher.code_graph.nodes[k].keys() else ''
+        return {k:self.batcher.graph_ops.graph.nodes[k]['description']
+                if 'description' in self.batcher.graph_ops.graph.nodes[k].keys() else ''
                 for k,v in self.batcher.code_idxs.items()
                 if k != ""}
 
