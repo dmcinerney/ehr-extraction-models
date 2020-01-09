@@ -11,11 +11,9 @@ BIT_is = get_batch_info_test_class(loss_func_is)
 from models.ehr_extraction.cosine_similarity.model import Model as Model_cs
 from pytt.utils import read_pickle
 
-code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology.pkl'
-
 model_components = {
     'code_supervision': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=False),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func,
@@ -24,7 +22,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_unfrozen': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
@@ -33,7 +31,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_with_description': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func,
@@ -42,7 +40,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_with_description_unfrozen': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=True, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
@@ -51,7 +49,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_only_description': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, sample_top=100, ancestors=True, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, ancestors=True, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=True, reduce_code_embeddings=False),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func,
@@ -60,7 +58,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_only_description_unfrozen': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model(*args, **kwargs, device1=device, device2='cpu', freeze_bert=False, reduce_code_embeddings=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
@@ -69,7 +67,7 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_individual_sentence': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
         'model_class': lambda device, *args, **kwargs:Model_is(*args, **kwargs, device1=device, device2='cpu'),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func_is,
@@ -78,14 +76,14 @@ model_components = {
             'testing': BIT_is,
             'applications': BIT_is_fordp}},
     'cosine_similarity': {
-        'batcher_class': lambda code_graph: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
         'model_class': lambda device, *args, **kwargs:Model_cs(*args, **kwargs, device=device),
         'batch_info_classes': {
             'applications':BIT_cs_fordp}},
 }
 
-def load_model_components(model_name, run_type='training', device='cpu', model_file=None, optimizer_file=None):
-    batcher = model_components[model_name]['batcher_class'](read_pickle(code_graph_file))
+def load_model_components(model_name, code_graph_file, run_type='training', device='cpu', model_file=None, optimizer_file=None):
+    batcher = model_components[model_name]['batcher_class'](read_pickle(code_graph_file), run_type)
     model = model_components[model_name]['model_class'](device, len(batcher.code_graph.nodes), sentences_per_checkpoint=17)
     if model_file is not None:
         model.load_state_dict(torch.load(model_file, map_location='cpu'))

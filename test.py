@@ -25,7 +25,8 @@ def main(load_checkpoint_folder=None):
     val_dataset = init_dataset(val_file)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     model_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'model_state.tpkl')
-    batcher, model, batch_info_class = load_model_components(model_type, run_type='testing', device=device, model_file=model_file)
+    code_graph_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'code_graph.pkl')
+    batcher, model, batch_info_class = load_model_components(model_type, code_graph_file, run_type='testing', device=device, model_file=model_file)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())

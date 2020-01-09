@@ -4,7 +4,7 @@ from dataset_scripts.ehr.code_dataset.batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
-codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
+codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl' # hack to create batcher (it is not actually used because batcher does not return anything code-related)
 model_dirs = {
     'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision'),
     'code_supervision_unfrozen': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen'),
@@ -47,7 +47,9 @@ class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
         self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
-        self.dps = {k:DefaultProcessor(model_dirs[k][0], os.path.join(model_dirs[k][1], 'model_state.tpkl')) for k in self.models}
+        self.dps = {k:DefaultProcessor(model_dirs[k][0],
+                                       os.path.join(model_dirs[k][1], 'model_state.tpkl'),
+                                       os.path.join(model_dirs[k][1], 'code_graph.pkl')) for k in self.models}
         self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt')) for k in self.models}
 
     def get_valid_queries(self, model):

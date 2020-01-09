@@ -13,6 +13,7 @@ from fairseq.legacy_distributed_data_parallel\
 from model_loader import load_model_components
 from shutil import copyfile
 
+code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
 data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
@@ -45,7 +46,7 @@ def main(load_checkpoint_folder=None):
         val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
         val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
-    batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, device=device, model_file=model_file) #, optimizer_file=optimizer_file)
+    batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, code_graph_file, device=device, model_file=model_file) #, optimizer_file=optimizer_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=4) #, num_workers=4)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():
@@ -59,8 +60,10 @@ def main(load_checkpoint_folder=None):
         trainer.train(loss_func)
 
 if __name__ == '__main__':
-    if os.path.exists(used_targets_file) and save_checkpoint_folder is not None:
-        copyfile(used_targets_file, os.path.join(save_checkpoint_folder, 'used_targets.txt'))
+    if save_checkpoint_folder is not None:
+        copyfile(code_graph_file, os.path.join(save_checkpoint_folder, 'code_graph.pkl'))
+        if os.path.exists(used_targets_file):
+            copyfile(used_targets_file, os.path.join(save_checkpoint_folder, 'used_targets.txt'))
     main(load_checkpoint_folder=load_checkpoint_folder)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
