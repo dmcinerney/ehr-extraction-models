@@ -20,12 +20,12 @@ class ClinicalBertWrapper(nn.Module):
         self_attentions = torch.cat([self_attention.unsqueeze(1) for self_attention in outputs[2]], 1)
         return encodings, self_attentions
 
-class ClinicalBertSentences(nn.Module):
-    def __init__(self, embedding_dim=None, pool_type=None, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10, device='cpu'):
-        super(ClinicalBertSentences, self).__init__()
-        self.clinical_bert_wrapper = ClinicalBertWrapper()
+class EncoderSentences(nn.Module):
+    def __init__(self, encoder, embedding_dim=None, pool_type=None, truncate_sentences=None, truncate_tokens=None, sentences_per_checkpoint=10, device='cpu'):
+        super(EncoderSentences, self).__init__()
+        self.encoder = encoder()
         self.device = device
-        outdim = self.clinical_bert_wrapper.hidden_size
+        outdim = self.encoder.hidden_size
         self.embedding_dim = embedding_dim
         if embedding_dim is not None:
             self.linear = nn.Linear(outdim, embedding_dim)
@@ -62,7 +62,7 @@ class ClinicalBertSentences(nn.Module):
             else:
                 conditioning_reshaped = conditioning
             results = checkpoint(
-                self.run_checkpointed_clinical_bert, article_sentences_temp.reshape(b*actual_ns, nt), mask_temp.reshape(b*actual_ns, nt), conditioning_reshaped, *self.parameters())
+                self.run_checkpointed_encoder, article_sentences_temp.reshape(b*actual_ns, nt), mask_temp.reshape(b*actual_ns, nt), conditioning_reshaped, *self.parameters())
             if len(results) == 3:
                 encodings_temp, self_attentions_temp, word_level_attentions_temp = results
             else:
@@ -81,9 +81,9 @@ class ClinicalBertSentences(nn.Module):
         word_level_attentions = torch.cat(word_level_attentions, 1)
         return encodings, self_attentions, word_level_attentions
 
-    def run_checkpointed_clinical_bert(self, token_ids, attention_mask, conditioning, *args):
+    def run_checkpointed_encoder(self, token_ids, attention_mask, conditioning, *args):
         token_ids, attention_mask, conditioning = token_ids.to(self.device), attention_mask.to(self.device), conditioning.to(self.device)
-        encodings, self_attentions = self.clinical_bert_wrapper(token_ids, attention_mask)
+        encodings, self_attentions = self.encoder(token_ids, attention_mask)
         if self.pool_type == "conditioned_attention":
             if conditioning.size(0) == 0:
                 raise Exception

@@ -18,13 +18,14 @@ data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preproces
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
-#model_type = 'code_supervision_unfrozen'
-#save_checkpoint_folder = 'checkpoints2/code_supervision_unfrozen2'
-#load_checkpoint_folder = 'checkpoints2/code_supervision'
-model_type = 'code_supervision_only_description'
-save_checkpoint_folder = 'checkpoints3/code_supervision_only_description'
+model_type = 'code_supervision'
+save_checkpoint_folder = 'checkpoints4/code_supervision'
 load_checkpoint_folder = None
 device = 'cuda:0'
+#model_type = 'code_supervision_only_linearization'
+#save_checkpoint_folder = 'checkpoints4/code_supervision_only_linearization'
+#load_checkpoint_folder = None
+#device = 'cuda:1'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:

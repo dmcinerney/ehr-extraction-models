@@ -3,7 +3,8 @@ import copy
 import torch
 from transformers import BertTokenizer
 from pytt.batching.standard_batcher import StandardBatcher,\
-                                           StandardInstance
+                                           StandardInstance,\
+                                           StandardBatch
 from pytt.utils import pad_and_concat
 import models.clinical_bert.parameters as p
 import spacy
@@ -11,6 +12,7 @@ import pandas as pd
 nlp = spacy.load('en_core_web_sm')
 
 class Batcher(StandardBatcher):
+    # Note: ancestors is done in preprocessing sometimes
     def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None):
         self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
@@ -31,6 +33,9 @@ class Batcher(StandardBatcher):
                         code_description=self.code_description,
                         code_linearization=self.code_linearization,
                         sample_top=self.sample_top)
+
+    def batch(self, instances, devices=None):
+        return super(Batcher, self).batch(instances, devices=devices, batch_class=create_batch_class(len(self.code_idxs)))
 
 def process_reports(tokenizer, reports_df, num_sentences=None):
     reports_iter = list(reports_df.iterrows())
@@ -86,27 +91,24 @@ class GraphOps:
         for n in self.graph.nodes:
             if self.graph.in_degree(n) == 0:
                 self.start_node = n
-            if self.graph.out_degree(n) > 0:
-                self.node_idx_option[n] = []
-                for i,succ in enumerate(self.graph.successors(n)):
-                    self.node_option_idx[succ] = i
-                    self.node_idx_option[n].append(succ)
-                    self.max_index = max(self.max_index, i)
+            self.node_idx_option[n] = []
+            for i,succ in enumerate(self.graph.successors(n)):
+                self.node_option_idx[succ] = i
+                self.node_idx_option[n].append(succ)
+                self.max_index = max(self.max_index, i)
 
-    def ancestors(self, nodes, stop_nodes=None):
-        nodes = copy.deepcopy(nodes)
-        for node in nodes:
-            if self.graph.in_degree(node) > 0:
-                pred = next(iter(self.graph.predecessors(node)))
-                if pred in nodes\
-                   or self.graph.in_degree(pred) == 0\
-                   or (stop_nodes is not None and pred in stop_nodes):
-                    # already added
-                    # or hit the starting node
-                    # or hit a stop node
-                    continue
-                nodes.append(pred)
-        return nodes
+    def ancestors(self, nodes, stop_nodes=set()):
+        node_stack = copy.deepcopy(nodes)
+        new_nodes = set()
+        while len(node_stack) > 0:
+            node = node_stack.pop()
+            if node in stop_nodes: continue # don't add stop nodes
+            if node in new_nodes: continue # don't add nodes already there
+            in_degree = self.graph.in_degree(node)
+            if in_degree == 0: continue # don't add the start node
+            new_nodes.add(node)
+            node_stack.extend(list(graph.predecessors(node)))
+        return list(new_nodes)
 
     def get_descriptions(self, nodes):
         return [self.graph.nodes[node]['description'] if 'description' in self.graph.nodes[node].keys() else 'none' for node in nodes]
@@ -199,6 +201,13 @@ class Instance(StandardInstance):
                 [torch.tensor(linearized_code) for linearized_code in linearized_codes])
             self.datapoint['linearized_codes_lengths'] = torch.tensor(
                 [len(linearized_code) for linearized_code in linearized_codes])
+            self.observed += ['linearized_codes', 'linearized_codes_lengths']
 
     def keep_in_batch(self):
         return {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}
+
+def create_batch_class(total_num_codes):
+    class Batch(StandardBatch):
+        def get_target(self):
+            return dict(**super(Batch, self).get_target(), total_num_codes=torch.tensor(total_num_codes))
+    return Batch

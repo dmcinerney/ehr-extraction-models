@@ -12,6 +12,7 @@ model_dirs = {
     'code_supervision_with_description': ('code_supervision_with_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description'),
     'code_supervision_only_description': ('code_supervision_only_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only'),
     'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen'),
+    'code_supervision_only_linearization': ('code_supervision_only_linearization', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints4/code_supervision_only_linearization'),
     'code_supervision_individual_sentence': ('code_supervision_individual_sentence', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence'),
     'cosine_similarity': ('cosine_similarity', None),
 }
@@ -19,12 +20,18 @@ model_dirs = {
 class TokenizerInterface:
     def __init__(self):
         self.batcher = Batcher(read_pickle(codes_file))
+        self.linearizations = {n:self.batcher.graph_ops.linearize(n) for n in self.batcher.graph_ops.graph.nodes}
 
     def get_descriptions(self):
         return {k:self.batcher.graph_ops.graph.nodes[k]['description']
                 if 'description' in self.batcher.graph_ops.graph.nodes[k].keys() else ''
-                for k,v in self.batcher.code_idxs.items()
-                if k != ""}
+                for k,v in self.batcher.code_idxs.items() if k != self.batcher.graph_ops.start_node}
+
+    def get_hierarchy(self):
+        return {"start":self.batcher.graph_ops.start_node,
+                "options":self.batcher.graph_ops.node_idx_option,
+                "indices":self.batcher.graph_ops.node_option_idx,
+                "parents":{n:next(iter(self.batcher.graph_ops.graph.predecessors(n))) for n in self.batcher.graph_ops.graph.nodes if self.batcher.graph_ops.graph.in_degree(n) > 0}}
 
     def tokenize(self, reports, num_sentences='default'):
         raw_datapoint = {'reports':reports, 'targets':[next(iter(self.get_descriptions().keys()))]}
@@ -46,7 +53,9 @@ class TokenizerInterface:
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
-        self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
+        #self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
+        self.models = ["code_supervision_only_linearization"]
+#        self.models = []
         self.dps = {k:DefaultProcessor(model_dirs[k][0],
                                        os.path.join(model_dirs[k][1], 'model_state.tpkl'),
                                        os.path.join(model_dirs[k][1], 'code_graph.pkl')) for k in self.models}

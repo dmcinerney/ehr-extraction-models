@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from models.clinical_bert.model import ClinicalBertSentences
+from models.clinical_bert.model import EncoderSentences, ClinicalBertWrapper
 from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts
 
 
@@ -9,7 +9,7 @@ class Model(nn.Module):
     def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device='cpu'):
         super(Model, self).__init__()
         self.num_codes = num_codes
-        self.clinical_bert_sentences = ClinicalBertSentences(pool_type="mean", truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device)
+        self.clinical_bert_sentences = EncoderSentences(ClinicalBertWrapper, pool_type="mean", truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device)
         self.device = device
 
     def correct_devices(self):

@@ -1,24 +1,29 @@
+import math
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
-from models.clinical_bert.model import ClinicalBertSentences
+from models.clinical_bert.model import ClinicalBertWrapper, EncoderSentences
 from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts, none_to_tensor, tensor_to_none
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, reduce_code_embeddings=False, dropout=.15):
+    def __init__(self, num_codes=0, num_linearization_embeddings=0, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, num_code_embedding_types=1, dropout=.15):
         super(Model, self).__init__()
         self.num_codes = num_codes
-        self.clinical_bert_sentences = ClinicalBertSentences(embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
+        self.num_linearization_embeddings = num_linearization_embeddings
+        self.clinical_bert_sentences = EncoderSentences(ClinicalBertWrapper, embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
             self.freeze_bert()
         else:
             self.unfreeze_bert(dropout=dropout)
-        self.code_embeddings = nn.Embedding(num_codes, outdim)
+        self.code_embeddings = nn.Embedding(num_codes, outdim) if num_codes > 0 else None
+        self.linearized_code_transformer = EncoderSentences(lambda : LinearizedCodesTransformer(num_linearization_embeddings), embedding_dim=outdim, truncate_tokens=50,
+                                                            truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device2)\
+                                           if num_linearization_embeddings > 0 else None
         self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)
-        self.linear2 = nn.Linear(outdim*2, outdim) if reduce_code_embeddings else None
+        self.linear2 = nn.Linear(outdim*num_code_embedding_types, outdim) if num_code_embedding_types > 1 else None
         self.device1 = device1
         self.device2 = device2
 
@@ -32,14 +37,15 @@ class Model(nn.Module):
 
     def correct_devices(self):
         self.clinical_bert_sentences.correct_devices()
-        self.code_embeddings.to(self.device2)
+        if self.code_embeddings is not None:
+            self.code_embeddings.to(self.device2)
         self.attention.to(self.device2)
         self.linear.to(self.device2)
         if self.linear2 is not None:
             self.linear2.to(self.device2)
         self.codes_per_checkpoint = 1000
 
-    def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None):
+    def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None):
         nq = num_codes.max()
         nq_temp =  self.codes_per_checkpoint
         scores, attention, traceback_attention = [], [], []
@@ -54,6 +60,12 @@ class Model(nn.Module):
             else:
                 code_description_temp = torch.zeros(0)
                 code_description_length_temp = torch.zeros(0)
+            if linearized_codes is not None:
+                linearized_codes_temp = linearized_codes[:, offset:offset+nq_temp]
+                linearized_codes_lengths_temp = linearized_codes_lengths[:, offset:offset+nq_temp]
+            else:
+                linearized_codes_temp = torch.zeros(0)
+                linearized_codes_lengths_temp = torch.zeros(0)
             num_codes_temp = torch.clamp(num_codes-offset, 0, nq_temp)
             scores_temp, attention_temp, traceback_attention_temp = checkpoint(
                 self.inner_forward,
@@ -63,6 +75,8 @@ class Model(nn.Module):
                 codes_temp,
                 code_description_temp,
                 code_description_length_temp,
+                linearized_codes_temp,
+                linearized_codes_lengths_temp,
                 *self.parameters())
             scores.append(scores_temp)
             attention.append(attention_temp)
@@ -73,7 +87,6 @@ class Model(nn.Module):
         return_dict = dict(
             scores=scores,
             num_codes=num_codes,
-            total_num_codes=torch.tensor(self.num_codes),
             attention=attention,
             traceback_attention=traceback_attention,
             article_sentences_lengths=article_sentences_lengths)
@@ -81,8 +94,8 @@ class Model(nn.Module):
             return_dict['codes'] = codes
         return return_dict
 
-    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, *args):
-        codes, code_description, code_description_length = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length)
+    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths, *args):
+        codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length), tensor_to_none(linearized_codes), tensor_to_none(linearized_codes_lengths)
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
         article_sentences_lengths, num_codes, encodings, self_attentions, word_level_attentions =\
@@ -93,20 +106,26 @@ class Model(nn.Module):
             self_attentions.mean(3).view(b*ns, nl, nt, nt),
             attention_vecs=word_level_attentions.view(b*ns, 1, nt))\
             .view(b, ns, nt)
-        if codes is None and code_description is None: raise Exception
+        if codes is None and code_description is None and linearized_codes is None: raise Exception
+        all_code_embeddings = []
         if codes is not None:
             codes = codes.to(self.device2)
-            code_embeddings = self.code_embeddings(codes)
+            all_code_embeddings.append(self.code_embeddings(codes))
         if code_description is not None:
-            code_description_embeddings = self.clinical_bert_sentences(
+            all_code_embeddings.append(self.clinical_bert_sentences(
                 code_description,
                 code_description_length,
-            )[0].to(self.device2)
-        if codes is not None and code_description is not None:
-            code_embeddings = torch.cat((code_embeddings, code_description_embeddings), 2)
+            )[0].to(self.device2))
+        if linearized_codes is not None:
+            all_code_embeddings.append(self.linearized_code_transformer(
+                linearized_codes,
+                linearized_codes_lengths
+            )[0])
+        if self.linear2 is not None:
+            code_embeddings = torch.cat(all_code_embeddings, 2)
             code_embeddings = self.linear2(code_embeddings)
-        elif codes is None:
-            code_embeddings = code_description_embeddings
+        else:
+            code_embeddings = all_code_embeddings[0]
         key_padding_mask = (article_sentences_lengths == 0)[:,:encodings.size(1)]
         encoding, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1), key_padding_mask=key_padding_mask)
         nq, _, emb_dim = encoding.shape
@@ -154,3 +173,66 @@ def statistics_func(scores, codes, num_codes, total_num_codes, attention, traceb
             'accuracy_sum':((scores[code_mask] > 0).long() == labels[code_mask]).sum().float()*b/code_mask.sum(),
             'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
             'traceback_attention_entropy':entropy(traceback_attention.view(b, nq, ns*nt))[code_mask].mean()*b}
+
+
+class LinearizedCodesTransformer(nn.Module):
+    def __init__(self, num_embeddings, d_model=100, num_layers=6, nhead=4):
+        super(LinearizedCodesTransformer, self).__init__()
+        self.embeddings = nn.Embedding(num_embeddings, d_model)
+        self.positional_encodings = PositionalEncoding(d_model=d_model)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=4*d_model)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers)
+        self.hidden_size = d_model
+        self.num_layers = num_layers
+        self.num_heads = nhead
+
+    def forward(self, token_ids, attention_mask):
+        b, nl, nh, nt = token_ids.size(0), self.num_layers, self.num_heads, token_ids.size(1)
+        outputs = self.transformer_encoder(self.positional_encodings(self.embeddings(token_ids).transpose(0, 1)), src_key_padding_mask=~attention_mask).transpose(0, 1)
+        return outputs, outputs[0,0,0]*torch.eye(nt).expand(b, nl, nh, nt, nt)
+
+
+# Taken from https://github.com/pytorch/examples/tree/master/word_language_model
+# Temporarily leave PositionalEncoding module here. Will be moved somewhere else.
+class PositionalEncoding(nn.Module):
+    r"""Inject some information about the relative or absolute position of the tokens
+        in the sequence. The positional encodings have the same dimension as
+        the embeddings, so that the two can be summed. Here, we use sine and cosine
+        functions of different frequencies.
+    .. math::
+        \text{PosEncoder}(pos, 2i) = sin(pos/10000^(2i/d_model))
+        \text{PosEncoder}(pos, 2i+1) = cos(pos/10000^(2i/d_model))
+        \text{where pos is the word position and i is the embed idx)
+    Args:
+        d_model: the embed dim (required).
+        dropout: the dropout value (default=0.1).
+        max_len: the max. length of the incoming sequence (default=5000).
+    Examples:
+        >>> pos_encoder = PositionalEncoding(d_model)
+    """
+
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        r"""Inputs of forward function
+        Args:
+            x: the sequence fed to the positional encoder model (required).
+        Shape:
+            x: [sequence length, batch size, embed dim]
+            output: [sequence length, batch size, embed dim]
+        Examples:
+            >>> output = pos_encoder(x)
+        """
+
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)

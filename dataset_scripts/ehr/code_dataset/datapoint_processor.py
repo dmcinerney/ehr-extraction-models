@@ -14,7 +14,7 @@ class GenericProcessor(RawIndividualProcessor):
 
 class DefaultProcessor(GenericProcessor):
     def __init__(self, model_type, model_file, code_graph_file):
-        batcher, model, batch_info_class = load_model_components(model_type, code_graph_file, run_type='applications', model_file=model_file, device='cuda:1')
+        batcher, model, batch_info_class = load_model_components(model_type, code_graph_file, run_type='applications', model_file=model_file, device='cuda:0')
         super(DefaultProcessor, self).__init__(model, batcher, batch_info_class)
 
     def takes_nl_queries(self):

@@ -2,11 +2,11 @@ import os
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
-dataset = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes'
+dataset = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 # need to add support for ancestors
 # code_graph_file = 
 # ancestors = True
-rebalanced = True
+rebalanced = False
 counts_file = os.path.join(dataset, 'counts.pkl')
 used_targets_file = os.path.join(dataset, 'used_targets.txt')
 
