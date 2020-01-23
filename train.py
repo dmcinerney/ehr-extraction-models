@@ -18,14 +18,14 @@ data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preproces
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
-model_type = 'code_supervision'
-save_checkpoint_folder = 'checkpoints4/code_supervision'
-load_checkpoint_folder = None
-device = 'cuda:0'
-#model_type = 'code_supervision_only_linearization'
-#save_checkpoint_folder = 'checkpoints4/code_supervision_only_linearization'
+#model_type = 'code_supervision'
+#save_checkpoint_folder = 'checkpoints4/code_supervision'
 #load_checkpoint_folder = None
 #device = 'cuda:1'
+model_type = 'code_supervision_only_linearization'
+save_checkpoint_folder = 'checkpoints5/code_supervision_only_linearization'
+load_checkpoint_folder = None
+device = 'cuda:0'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -34,7 +34,7 @@ def main(load_checkpoint_folder=None):
         set_random_state(read_pickle(os.path.join(load_checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
     batch_size = 8
-    epochs = 2
+    epochs = 4
     train_dataset = init_dataset(train_file)
     val_dataset = init_dataset(val_file)
     if load_checkpoint_folder is None:

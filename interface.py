@@ -15,6 +15,7 @@ model_dirs = {
     'code_supervision_only_linearization': ('code_supervision_only_linearization', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints4/code_supervision_only_linearization'),
     'code_supervision_individual_sentence': ('code_supervision_individual_sentence', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence'),
     'cosine_similarity': ('cosine_similarity', None),
+    'distance': ('distance', None),
 }
 
 class TokenizerInterface:
@@ -24,7 +25,7 @@ class TokenizerInterface:
 
     def get_descriptions(self):
         return {k:self.batcher.graph_ops.graph.nodes[k]['description']
-                if 'description' in self.batcher.graph_ops.graph.nodes[k].keys() else ''
+                if self.batcher.graph_ops.graph.nodes[k]['description'] is not None else ''
                 for k,v in self.batcher.code_idxs.items() if k != self.batcher.graph_ops.start_node}
 
     def get_hierarchy(self):
@@ -54,12 +55,17 @@ class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
         #self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
-        self.models = ["code_supervision_only_linearization"]
+        self.models = ["cosine_similarity", "distance"]
 #        self.models = []
-        self.dps = {k:DefaultProcessor(model_dirs[k][0],
-                                       os.path.join(model_dirs[k][1], 'model_state.tpkl'),
-                                       os.path.join(model_dirs[k][1], 'code_graph.pkl')) for k in self.models}
-        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt')) for k in self.models}
+        self.dps = {
+            k:DefaultProcessor(
+                model_dirs[k][0],
+                os.path.join(model_dirs[k][1], 'code_graph.pkl') if model_dirs[k][1] is not None else codes_file,
+                model_file=os.path.join(model_dirs[k][1], 'model_state.tpkl') if model_dirs[k][1] is not None else None)
+            for k in self.models}
+        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
+                                if model_dirs[k][1] is not None else list(self.get_descriptions().keys())
+                              for k in self.models}
 
     def get_valid_queries(self, model):
         return self.valid_queries[model]

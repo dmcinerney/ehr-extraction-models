@@ -58,7 +58,10 @@ class BatchInfoTest_cs(BatchInfo_cs):
         self.batch = None
         self.batch_outputs = None
 
-    def test_func(self, batch, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=None):
+    def test_func(self, batch, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes=None):
         results = {'attention':attention, 'traceback_attention':traceback_attention, 'article_sentences_lengths':article_sentences_lengths, 'tokenized_text':batch.instances[0]['tokenized_sentences'], 'sentence_spans':batch.instances[0]['sentence_spans'], 'original_reports':batch.instances[0]['original_reports']}
-        stats = statistics_func_cs(num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=labels)
+        if codes is not None:
+            stats = statistics_func_cs(num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=labels)
+        else:
+            stats = {}
         return results, stats

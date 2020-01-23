@@ -6,7 +6,7 @@ dataset = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocess
 # need to add support for ancestors
 # code_graph_file = 
 # ancestors = True
-rebalanced = False
+rebalanced = True
 counts_file = os.path.join(dataset, 'counts.pkl')
 used_targets_file = os.path.join(dataset, 'used_targets.txt')
 

@@ -106,12 +106,13 @@ class GraphOps:
             if node in new_nodes: continue # don't add nodes already there
             in_degree = self.graph.in_degree(node)
             if in_degree == 0: continue # don't add the start node
+            elif in_degree > 1: raise Exception # shouldn't have any nodes with more than one parent
             new_nodes.add(node)
             node_stack.extend(list(graph.predecessors(node)))
         return list(new_nodes)
 
     def get_descriptions(self, nodes):
-        return [self.graph.nodes[node]['description'] if 'description' in self.graph.nodes[node].keys() else 'none' for node in nodes]
+        return [self.graph.nodes[node]['description'] for node in nodes]
 
     def linearize(self, node):
         backwards_options = []

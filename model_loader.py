@@ -13,7 +13,7 @@ from pytt.utils import read_pickle
 
 model_components = {
     'code_supervision': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher, *args, **kwargs:Model(*args, **kwargs, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func,
@@ -22,8 +22,26 @@ model_components = {
             'testing': BIT,
             'applications': BIT_fordp}},
     'code_supervision_unfrozen': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher, *args, **kwargs:Model(*args, **kwargs, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=False, dropout=0),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
+        'loss_func': loss_func,
+        'batch_info_classes': {
+            'training': BI,
+            'testing': BIT,
+            'applications': BIT_fordp}},
+    'code_supervision_only_linearization': {
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_linearization=True),
+        'model_class': lambda device, batcher, *args, **kwargs:Model(*args, **kwargs, num_linearization_embeddings=batcher.graph_ops.max_index+1, device1=device, device2='cpu', freeze_bert=True),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
+        'loss_func': loss_func,
+        'batch_info_classes': {
+            'training': BI,
+            'testing': BIT,
+            'applications': BIT_fordp}},
+    'code_supervision_only_linearization_unfrozen': {
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_linearization=True),
+        'model_class': lambda device, batcher, *args, **kwargs:Model(*args, **kwargs, num_linearization_embeddings=batcher.graph_ops.max_index+1, device1=device, device2='cpu', freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func,
         'batch_info_classes': {
@@ -66,15 +84,6 @@ model_components = {
             'training': BI,
             'testing': BIT,
             'applications': BIT_fordp}},
-    'code_supervision_only_linearization': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_linearization=True),
-        'model_class': lambda device, batcher, *args, **kwargs:Model(*args, **kwargs, num_linearization_embeddings=batcher.graph_ops.max_index+1, device1=device, device2='cpu', freeze_bert=True),
-        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
-        'loss_func': loss_func,
-        'batch_info_classes': {
-            'training': BI,
-            'testing': BIT,
-            'applications': BIT_fordp}},
     'code_supervision_individual_sentence': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
         'model_class': lambda device, batcher, *args, **kwargs:Model_is(*args, **kwargs, num_codes=len(batcher.code_idxs), device1=device, device2='cpu'),
@@ -85,6 +94,11 @@ model_components = {
             'testing': BIT_is,
             'applications': BIT_is_fordp}},
     'cosine_similarity': {
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
+        'model_class': lambda device, batcher, *args, **kwargs:Model_cs(*args, **kwargs, num_codes=len(batcher.code_idxs), device=device),
+        'batch_info_classes': {
+            'applications':BIT_cs_fordp}},
+    'distance': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
         'model_class': lambda device, batcher, *args, **kwargs:Model_cs(*args, **kwargs, num_codes=len(batcher.code_idxs), device=device),
         'batch_info_classes': {
