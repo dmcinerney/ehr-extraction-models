@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from pytt.utils import pad_and_concat
 from pytt.iteration_info import BatchInfo as BI
-from .model import statistics_func
+from .model import statistics_func, loss_func
 
 def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
     mask = (positives != 0) | (relevants != 0)
@@ -89,16 +89,39 @@ class BatchInfo(BI):
         writer.add_histogram('scores_1', scores[labels==1], global_step)
 
 
-def get_batch_info_test_class(loss_func):
-    class BatchInfoTest(BatchInfo):
-        def stats(self):
-            results = super(BatchInfoTest, self).stats()
-            return {'loss':loss_func(**self.batch_outputs), **results}
+class BatchInfoTest(BatchInfo):
+    def stats(self):
+        results = super(BatchInfoTest, self).stats()
+        return {'loss':loss_func(**self.batch_outputs), **results}
 
-        def filter(self):
-            self.batch_outputs = None
-            self.batch = None
+    def filter(self):
+        self.batch_outputs = None
+        self.batch = None
 
-        def write_to_tensorboard(self, *args, **kwargs):
-            return
-    return BatchInfoTest
+    def write_to_tensorboard(self, *args, **kwargs):
+        return
+
+
+class BatchInfoApplications(BatchInfo):
+    def stats(self):
+        self.results, stats = self.test_func(self.batch, **self.batch_outputs)
+        return stats
+
+    def filter(self):
+        self.batch = None
+        self.batch_outputs = None
+
+    def test_func(self, batch, scores, codes, num_codes, total_num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels=None):
+        # TODO: make result from batch
+        sentence_level_attentions = get_sentence_level_attentions(sentence_level_scores, article_sentences_lengths, torch.ones_like(scores).byte())
+        attention = get_full_attention(word_level_attentions, sentence_level_attentions)
+        traceback_attention = get_full_attention(traceback_word_level_attentions, sentence_level_attentions)
+        results = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention, 'article_sentences_lengths':article_sentences_lengths,
+                   'tokenized_text':batch.instances[0]['tokenized_sentences'], 'sentence_spans':batch.instances[0]['sentence_spans'], 'original_reports':batch.instances[0]['original_reports']}
+        if labels is not None:
+            loss = loss_func(scores, codes, num_codes, total_num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels)
+            stats = statistics_func(scores, codes, num_codes, total_num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels)
+            stats = {'loss': loss, **stats}
+        else:
+            stats = {}
+        return results, stats

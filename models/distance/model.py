@@ -26,7 +26,7 @@ class Model(nn.Module):
             .view(b, ns, nt)
         code_embeddings = self.clinical_bert_sentences(code_description, code_description_length)[0]
         key_padding_mask = (article_sentences_lengths == 0)[:,:encodings.size(1)]
-        sentence_level_attentions = code_embeddings @ encodings.transpose(-1,-2)
+        sentence_level_attentions = ((code_embeddings.unsqueeze(-2) - encodings.unsqueeze(-3))**2).sum(-1)
         sentence_level_attentions = sentence_level_attentions/sentence_level_attentions.sum(2, keepdim=True)
         nq = code_description.shape[1]
         word_level_attentions = word_level_attentions\
@@ -39,15 +39,7 @@ class Model(nn.Module):
         traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
         return_dict = dict(
             num_codes=num_codes,
-            total_num_codes=torch.tensor(self.num_codes),
             attention=attention,
             traceback_attention=traceback_attention,
             article_sentences_lengths=article_sentences_lengths)
         return return_dict
-
-
-def statistics_func(num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=None):
-    b, nq, ns, nt = attention.shape
-    code_mask = (torch.arange(codes.size(1), device=codes.device) < num_codes.unsqueeze(1))
-    return {'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
-            'traceback_attention_entropy':entropy(traceback_attention.view(b, nq, ns*nt))[code_mask].mean()*b}

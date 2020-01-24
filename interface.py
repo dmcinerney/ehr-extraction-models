@@ -1,21 +1,16 @@
 import os
-from dataset_scripts.ehr.code_dataset.datapoint_processor import DefaultProcessor
-from dataset_scripts.ehr.code_dataset.batcher import Batcher
+from datapoint_processor import DefaultProcessor
+from batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl' # hack to create batcher (it is not actually used because batcher does not return anything code-related)
 model_dirs = {
-    'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision'),
-    'code_supervision_unfrozen': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen'),
-    'code_supervision_unfrozen2': ('code_supervision_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints2/code_supervision_unfrozen2'),
-    'code_supervision_with_description': ('code_supervision_with_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_with_description'),
-    'code_supervision_only_description': ('code_supervision_only_description', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision/description_only'),
-    'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/final_runs/code_supervision_only_description_unfrozen'),
-    'code_supervision_only_linearization': ('code_supervision_only_linearization', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints4/code_supervision_only_linearization'),
-    'code_supervision_individual_sentence': ('code_supervision_individual_sentence', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/ehr_extraction_code_supervision_individual_sentence'),
+    'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision'),
+    'code_supervision_only_linearization': ('code_supervision_only_linearization', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_linearization'),
     'cosine_similarity': ('cosine_similarity', None),
     'distance': ('distance', None),
+    #'tfidf_similarity': ('tfidf_similarity', None), # TODO CHARLIE: uncomment this
 }
 
 class TokenizerInterface:
@@ -54,9 +49,7 @@ class TokenizerInterface:
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
-        #self.models = ["code_supervision", "code_supervision_unfrozen", "code_supervision_unfrozen2"]
-        self.models = ["cosine_similarity", "distance"]
-#        self.models = []
+        self.models = ["cosine_similarity", "distance", "code_supervision", "code_supervision_only_linearization"]
         self.dps = {
             k:DefaultProcessor(
                 model_dirs[k][0],

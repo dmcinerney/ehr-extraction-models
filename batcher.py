@@ -13,10 +13,15 @@ nlp = spacy.load('en_core_web_sm')
 
 class Batcher(StandardBatcher):
     # Note: ancestors is done in preprocessing sometimes
-    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None):
+    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None, tfidf_tokenizer=False):
         self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
-        self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
+        if tfidf_tokenizer:
+            raise NotImplementedError # TODO CHARLIE: create tfidf tokenizer object with a .tokenize(text) function
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
+            # TODO CHARLIE: change this to a custom bert tokenizer (overriding
+            # .tokenize(text) object to also add cls and sep tokens and such as done in process reports)
         self.ancestors = ancestors
         self.code_id = code_id
         self.code_description = code_description
@@ -57,7 +62,7 @@ def process_reports(tokenizer, reports_df, num_sentences=None):
                 break
             tokenized_sent = tokenizer.tokenize(sent.text)
             if len(tokenized_sent) > 4: # NOTE THIS IS HARDCODED
-                append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token])
+                append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token]) # TODO CHARLIE: stuff this into the tokenize call
                 append_func(report_sentence_spans, (sent.start_char, sent.end_char))
                 sentence_count += 1
         append_func(sentence_spans, report_sentence_spans)
@@ -186,7 +191,7 @@ class Instance(StandardInstance):
                 # if targets were not given, you still need num_codes
                 self.datapoint['num_codes'] = torch.tensor(len(descriptions))
                 self.observed += ['num_codes']
-            tokenized_descriptions = [[tokenizer.cls_token] + tokenizer.tokenize(d) + [tokenizer.sep_token] for d in descriptions]
+            tokenized_descriptions = [[tokenizer.cls_token] + tokenizer.tokenize(d) + [tokenizer.sep_token] for d in descriptions] # TODO CHARLIE: stuff this into the tokenize call
             self.datapoint['code_description'] = pad_and_concat(
                 [torch.tensor(tokenizer.convert_tokens_to_ids(d)) for d in tokenized_descriptions])
             self.datapoint['code_description_length'] = torch.tensor(

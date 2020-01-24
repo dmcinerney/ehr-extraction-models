@@ -140,7 +140,7 @@ class Model(nn.Module):
         scores = self.linear(encoding)
         return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
 
-def loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
+def abstract_loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
@@ -156,8 +156,8 @@ def loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_at
 
 def loss_func_creator(attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     def loss_func_wrapper(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):
-        return loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels,
-                         attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
+        return abstract_loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels,
+                                  attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
     return loss_func_wrapper
 
 def statistics_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):

@@ -66,7 +66,6 @@ class Model(nn.Module):
         return_dict = dict(
             scores=scores,
             num_codes=num_codes,
-            total_num_codes=torch.tensor(self.num_codes),
             word_level_attentions=word_level_attentions,
             traceback_word_level_attentions=traceback_word_level_attentions,
             sentence_level_scores=sentence_level_scores,

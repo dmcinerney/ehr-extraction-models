@@ -12,7 +12,7 @@ from model_loader import load_model_components
 
 val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded/val.data'
 model_type = 'code_supervision_only_linearization'
-load_checkpoint_folder = 'checkpoints4/code_supervision_only_linearization'
+load_checkpoint_folder = 'checkpoints/code_supervision_only_linearization'
 device = 'cuda:1'
 
 def main(load_checkpoint_folder=None):
