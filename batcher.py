@@ -6,10 +6,21 @@ from pytt.batching.standard_batcher import StandardBatcher,\
                                            StandardInstance,\
                                            StandardBatch
 from pytt.utils import pad_and_concat
+from typing import List, Callable
 import models.clinical_bert.parameters as p
 import spacy
 import pandas as pd
+from models.tfidf_similarity.tfidf_tokenizer import TfidfTokenizer, GenTokenizer
 nlp = spacy.load('en_core_web_sm')
+
+class CustomBertTokenizer(BertTokenizer, GenTokenizer):
+    """Adds functionality to the Bert Tokenizer."""
+
+    def append_sent(self, f: Callable[[List[List[str]], List[str]], None],
+                    tok_sents: List[List[str]],
+                    tok_sent: List[str]):
+        """Adds the given tokenized sentence to all tokenized sentences via the given function."""
+        f(tok_sents, tok_sent)
 
 class Batcher(StandardBatcher):
     # Note: ancestors is done in preprocessing sometimes
@@ -17,9 +28,11 @@ class Batcher(StandardBatcher):
         self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
         if tfidf_tokenizer:
+            self.tokenizer = TfidfTokenizer()
             raise NotImplementedError # TODO CHARLIE: create tfidf tokenizer object with a .tokenize(text) function
         else:
-            self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
+            self.tokenizer = CustomBertTokenizer.from_pretrained(p.pretrained_model)
+            # self.tokenizer = BertTokenizer.from_pretrained(p.pretrained_model)
             # TODO CHARLIE: change this to a custom bert tokenizer (overriding
             # .tokenize(text) object to also add cls and sep tokens and such as done in process reports)
         self.ancestors = ancestors
@@ -62,9 +75,16 @@ def process_reports(tokenizer, reports_df, num_sentences=None):
                 break
             tokenized_sent = tokenizer.tokenize(sent.text)
             if len(tokenized_sent) > 4: # NOTE THIS IS HARDCODED
-                append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token]) # TODO CHARLIE: stuff this into the tokenize call
-                append_func(report_sentence_spans, (sent.start_char, sent.end_char))
-                sentence_count += 1
+                if isinstance(tokenizer, BertTokenizer):
+                    append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token])
+                else:
+                    append_func(tokenized_sentences, tokenized_sent)
+                """
+                    append_func(tokenized_sentences, [tokenizer.cls_token] + tokenized_sent + [tokenizer.sep_token]) # TODO CHARLIE: stuff this into the tokenize call
+                    append_func(report_sentence_spans, (sent.start_char, sent.end_char))
+                    sentence_count += 1
+                """
+
         append_func(sentence_spans, report_sentence_spans)
     j = 0
     for report_sentence_spans in sentence_spans:
