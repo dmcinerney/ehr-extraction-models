@@ -4,7 +4,7 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 from utils import directory
 from transformers import BertModel
-from . import parameters as p
+import parameters as p
 
 class ClinicalBertWrapper(nn.Module):
     def __init__(self):

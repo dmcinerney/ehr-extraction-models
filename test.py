@@ -5,15 +5,15 @@ from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
 from pytt.logger import logger
-from dataset import init_dataset
+from preprocessing.dataset import init_dataset
 from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
 
 val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded/val.data'
-model_type = 'code_supervision_only_linearization'
-load_checkpoint_folder = 'checkpoints/code_supervision_only_linearization'
-device = 'cuda:1'
+model_type = 'code_supervision_only_description_unfrozen'
+load_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
+device = 'cuda:0'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:

@@ -140,7 +140,7 @@ class Model(nn.Module):
         scores = self.linear(encoding)
         return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
 
-def abstract_loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
+def abstract_loss_func(total_num_codes, code_idxs, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
@@ -155,12 +155,12 @@ def abstract_loss_func(scores, codes, num_codes, total_num_codes, attention, tra
     return loss
 
 def loss_func_creator(attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
-    def loss_func_wrapper(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):
-        return abstract_loss_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels,
+    def loss_func_wrapper(total_num_codes, code_idxs, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels):
+        return abstract_loss_func(total_num_codes, code_idxs, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels,
                                   attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
     return loss_func_wrapper
 
-def statistics_func(scores, codes, num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, labels):
+def statistics_func(total_num_codes, code_idxs, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels):
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
     positives = get_code_counts(total_num_codes, codes, code_mask, (scores > 0))

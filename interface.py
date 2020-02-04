@@ -1,16 +1,17 @@
 import os
 from datapoint_processor import DefaultProcessor
-from batcher import Batcher
+from preprocessing.batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl' # hack to create batcher (it is not actually used because batcher does not return anything code-related)
 model_dirs = {
-    'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision'),
-    'code_supervision_only_linearization': ('code_supervision_only_linearization', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_linearization'),
+#    'code_supervision': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision'),
     'cosine_similarity': ('cosine_similarity', None),
     'distance': ('distance', None),
-    #'tfidf_similarity': ('tfidf_similarity', None), # TODO CHARLIE: uncomment this
+    'tfidf_similarity': ('tfidf_similarity', None),
+    'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_description_unfrozen'),
+    'code_supervision_only_linearization_unfrozen': ('code_supervision_only_linearization_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_linearization_unfrozen'),
 }
 
 class TokenizerInterface:
@@ -49,12 +50,14 @@ class TokenizerInterface:
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
-        self.models = ["cosine_similarity", "distance", "code_supervision", "code_supervision_only_linearization"]
+#        self.models = ["cosine_similarity", "distance", "tfidf_similarity"]
+        self.models = ["cosine_similarity", "distance", "tfidf_similarity", "code_supervision_only_description_unfrozen", "code_supervision_only_linearization_unfrozen"]
         self.dps = {
             k:DefaultProcessor(
                 model_dirs[k][0],
                 os.path.join(model_dirs[k][1], 'code_graph.pkl') if model_dirs[k][1] is not None else codes_file,
-                model_file=os.path.join(model_dirs[k][1], 'model_state.tpkl') if model_dirs[k][1] is not None else None)
+                model_file=os.path.join(model_dirs[k][1], 'model_state.tpkl') if model_dirs[k][1] is not None else None,
+                device='cuda:0')
             for k in self.models}
         self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
                                 if model_dirs[k][1] is not None else list(self.get_descriptions().keys())

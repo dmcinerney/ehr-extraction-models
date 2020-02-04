@@ -1,5 +1,5 @@
 import torch
-from batcher import Batcher
+from preprocessing.batcher import Batcher
 from models.code_supervision.model import Model, loss_func_creator
 from models.code_supervision.iteration_info import BatchInfo as BI, create_batch_info_test as create_BIT, create_batch_info_applications as create_BIA
 from models.code_supervision_individual_sentence.model import Model as Model_is, loss_func as loss_func_is
@@ -57,7 +57,7 @@ model_components = {
             'testing': create_BIT(loss_func_creator()),
             'applications': create_BIA(loss_func_creator())}},
     'code_supervision_only_description_unfrozen': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_description=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'loss_func': loss_func_creator(),
@@ -66,7 +66,7 @@ model_components = {
             'testing': create_BIT(loss_func_creator()),
             'applications': create_BIA(loss_func_creator())}},
     'code_supervision_individual_sentence': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_id=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher:Model_is(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu'),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'loss_func': loss_func_is,
@@ -75,21 +75,20 @@ model_components = {
             'testing': BIT_is,
             'applications': BIA_is}},
     'cosine_similarity': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, add_special_tokens=False),
         'model_class': lambda device, batcher:Model_cs(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device=device),
         'batch_info_classes': {
             'applications':BIA_cs}},
     'distance': {
-        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True),
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, add_special_tokens=False),
         'model_class': lambda device, batcher:Model_d(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device=device),
         'batch_info_classes': {
             'applications':BIA_cs}},
-# TODO CHARLIE: uncomment this
-#    'tfidf_similarity': {
-#        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, tfidf_tokenizer=True),
-#        'model_class': lambda device, batcher: Model_tfidf(), # it's weird, but you can just ignore the arguments to this lambda function
-#        'batch_info_classes': {
-#            'applications':BIA_cs}},
+    'tfidf_similarity': {
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, tfidf_tokenizer=True),
+        'model_class': lambda device, batcher: Model_tfidf(device=device),
+        'batch_info_classes': {
+            'applications':BIA_cs}},
 }
 
 

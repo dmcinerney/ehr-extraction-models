@@ -7,7 +7,7 @@ from pytt.training.trainer import Trainer
 from pytt.training.tracker import Tracker
 from pytt.distributed import distributed_wrapper
 from pytt.logger import logger
-from dataset import init_dataset
+from preprocessing.dataset import init_dataset
 from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
@@ -18,10 +18,10 @@ data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preproces
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
-model_type = 'code_supervision_only_linearization'
-save_checkpoint_folder = 'checkpoints/code_supervision_only_linearization'
-load_checkpoint_folder = None
-device = 'cuda:1'
+model_type = 'code_supervision_only_description_unfrozen'
+save_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
+load_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
+device = 'cuda:0'
 
 def main(load_checkpoint_folder=None):
     if load_checkpoint_folder is None:
@@ -30,7 +30,7 @@ def main(load_checkpoint_folder=None):
         set_random_state(read_pickle(os.path.join(load_checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
     batch_size = 8
-    epochs = 4
+    epochs = 2
     train_dataset = init_dataset(train_file)
     val_dataset = init_dataset(val_file)
     if load_checkpoint_folder is None:

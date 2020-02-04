@@ -45,7 +45,7 @@ class Model(nn.Module):
         return return_dict
 
 
-def statistics_func(num_codes, total_num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=None):
+def statistics_func(total_num_codes, code_idxs, num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=None):
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(codes.size(1), device=codes.device) < num_codes.unsqueeze(1))
     return {'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
