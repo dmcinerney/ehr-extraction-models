@@ -8,18 +8,18 @@ from pytt.training.tracker import Tracker
 from pytt.distributed import distributed_wrapper
 from pytt.logger import logger
 from processing.dataset import init_dataset
-from fairseq.legacy_distributed_data_parallel\
-        import LegacyDistributedDataParallel as LDDP
+#from fairseq.legacy_distributed_data_parallel\
+#        import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
 from shutil import copyfile
 
 code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
-data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
+data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/FinalPreprocessedData/reports_and_codes_expanded'
 train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
 model_type = 'code_supervision_only_description_unfrozen'
-save_checkpoint_folder = 'checkpoints/test'
+save_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
 load_checkpoint_folder = None
 device = 'cuda:0'
 
@@ -31,8 +31,8 @@ def main(load_checkpoint_folder=None):
     logger.set_verbosity(2)
     batch_size = 8
     epochs = 2
-    train_dataset = init_dataset(train_file)
-    val_dataset = init_dataset(val_file)
+    train_dataset = init_dataset(train_file, limit_rows=200)
+    val_dataset = init_dataset(val_file, limit_rows=100)
     if load_checkpoint_folder is None:
         indices_iterator = init_indices_iterator(len(train_dataset), batch_size, random=True, epochs=epochs)
         val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size, random=True, iterations=len(indices_iterator))

@@ -50,14 +50,15 @@ class TokenizerInterface:
 class FullModelInterface(TokenizerInterface):
     def __init__(self):
         super(FullModelInterface, self).__init__()
+        self.models = []
 #        self.models = ["cosine_similarity", "distance", "tfidf_similarity"]
-        self.models = ["cosine_similarity", "distance", "tfidf_similarity", "code_supervision_only_description_unfrozen", "code_supervision_only_linearization_unfrozen"]
+#        self.models = ["cosine_similarity", "distance", "tfidf_similarity", "code_supervision_only_description_unfrozen", "code_supervision_only_linearization_unfrozen"]
         self.dps = {
             k:DefaultProcessor(
                 model_dirs[k][0],
                 os.path.join(model_dirs[k][1], 'code_graph.pkl') if model_dirs[k][1] is not None else codes_file,
                 model_file=os.path.join(model_dirs[k][1], 'model_state.tpkl') if model_dirs[k][1] is not None else None,
-                device='cuda:0')
+                device='cpu')
             for k in self.models}
         self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
                                 if model_dirs[k][1] is not None else list(self.get_descriptions().keys())

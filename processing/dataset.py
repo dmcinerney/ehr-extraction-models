@@ -13,8 +13,11 @@ class Dataset(RawDataset):
         dictionary['labels'] = eval(dictionary['labels'])
         return dictionary
 
-def init_dataset(filename):
-    df = pd.read_csv(filename, compression='gzip')
+def init_dataset(filename, limit_rows=None):
+    if limit_rows is None:
+        df = pd.read_csv(filename, compression='gzip')
+    else:
+        df = next(iter(pd.read_csv(filename, compression='gzip', chunksize=limit_rows)))
     return Dataset(df)
 
 def split_dataset(filename, split=.9):
