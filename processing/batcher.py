@@ -42,9 +42,6 @@ class Batcher(StandardBatcher):
                         tfidf_tokenizer=self.tfidf_tokenizer,
                         filter=self.filter)
 
-    def batch(self, instances, devices=None):
-        return super(Batcher, self).batch(instances, devices=devices, batch_class=create_batch_class(len(self.code_idxs), self.code_idxs))
-
 def get_sentences(reports_df, num_sentences=None, filter=lambda x: True):
     reports_iter = list(reports_df.iterrows())
     if num_sentences is not None and num_sentences < 0:
@@ -230,9 +227,3 @@ class Instance(StandardInstance):
 
     def keep_in_batch(self):
         return {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}
-
-def create_batch_class(total_num_codes, code_idxs):
-    class Batch(StandardBatch):
-        def get_target(self):
-            return dict(**super(Batch, self).get_target(), total_num_codes=torch.tensor(total_num_codes), code_idxs=code_idxs)
-    return Batch

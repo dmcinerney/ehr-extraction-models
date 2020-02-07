@@ -7,7 +7,7 @@ from pytt.training.trainer import Trainer
 from pytt.training.tracker import Tracker
 from pytt.distributed import distributed_wrapper
 from pytt.logger import logger
-from preprocessing.dataset import init_dataset
+from processing.dataset import init_dataset
 from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
@@ -19,8 +19,8 @@ train_file = os.path.join(data_dir, 'train.data')
 val_file = os.path.join(data_dir, 'val.data')
 used_targets_file = os.path.join(data_dir, 'used_targets.txt')
 model_type = 'code_supervision_only_description_unfrozen'
-save_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
-load_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
+save_checkpoint_folder = 'checkpoints/test'
+load_checkpoint_folder = None
 device = 'cuda:0'
 
 def main(load_checkpoint_folder=None):
@@ -43,7 +43,7 @@ def main(load_checkpoint_folder=None):
         val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
         val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
-    batcher, model, batch_info_class, optimizer, loss_func = load_model_components(model_type, code_graph_file, device=device, model_file=model_file) #, optimizer_file=optimizer_file)
+    batcher, model, postprocessor, optimizer = load_model_components(model_type, code_graph_file, device=device, model_file=model_file) #, optimizer_file=optimizer_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=4) #, num_workers=4)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():
@@ -52,9 +52,9 @@ def main(load_checkpoint_folder=None):
 #    if load_checkpoint_folder is not None:
 #        tracker.needs_graph = False
     tracker.needs_graph = False
-    trainer = Trainer(model, optimizer, batch_iterator, val_iterator=val_iterator, val_every=10, batch_info_class=batch_info_class, tracker=tracker)
+    trainer = Trainer(model, postprocessor, optimizer, batch_iterator, val_iterator=val_iterator, val_every=10, tracker=tracker)
     with torch.autograd.set_detect_anomaly(False):
-        trainer.train(loss_func)
+        trainer.train()
 
 if __name__ == '__main__':
     if save_checkpoint_folder is not None:

@@ -74,7 +74,7 @@ class Model(nn.Module):
             return_dict['codes'] = codes
         return return_dict
 
-def loss_func(total_num_codes, code_idxs, scores, codes, num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
+def loss_func(total_num_codes, scores, codes, num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
     b, nq = scores.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
@@ -99,7 +99,7 @@ def get_full_attention(word_level_attentions, sentence_level_attentions):
     attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
     return attention
 
-def statistics_func(total_num_codes, code_idxs, scores, codes, num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
+def statistics_func(total_num_codes, scores, codes, num_codes, word_level_attentions, traceback_word_level_attentions, sentence_level_scores, article_sentences_lengths, labels):
     b, ns, nt = word_level_attentions.shape
     nq = scores.size(1)
     sentence_level_attentions = get_sentence_level_attentions(sentence_level_scores, article_sentences_lengths, labels)

@@ -2,6 +2,8 @@ from contextlib import contextmanager
 import sys
 import os
 import torch
+import matplotlib.pyplot as plt
+import numpy as np
 
 @contextmanager
 def directory(new_dir):
@@ -86,7 +88,7 @@ def tensor_to_none(t):
     else:
         return t
 
-def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
+def precision_recall_f1(true_positives, positives, relevants, reduce=None):
     mask = (positives != 0) | (relevants != 0)
     if reduce == 'micro':
         true_positives, positives, relevants = true_positives.sum(), positives.sum(), relevants.sum()
@@ -95,4 +97,38 @@ def precision_recall_f1(true_positives, positives, relevants, reduce='macro'):
     f1 = (2*precision*recall/(precision + recall)).masked_fill((precision+recall) == 0, 0)
     if reduce == 'macro':
         precision, recall, f1 = precision[mask].mean(), recall[mask].mean(), f1[mask].mean()
-    return precision.item(), recall.item(), f1.item()
+    if reduce is not None:
+        precision, recall, f1 = precision.item(), recall.item(), f1.item()
+    return precision, recall, f1
+
+def plot_stacked_bar(data, x_ticks=None, stack_labels=None, y_label=None, title=None, show_nums=None, y_lim=None, file=None, figsize=None):
+    ind = np.arange(len(data[0][0]))    # the x locations for the groups
+    width = 0.40       # the width of the bars: can also be len(x) sequence
+    figure = plt.figure(figsize=figsize)
+    ps = [plt.bar(
+        ind,
+        mean,
+        width,
+        bottom=(data[i-1][0] if i > 0 else None),
+        yerr=error
+    ) for i,(mean,error) in enumerate(data)]
+
+    if y_label is not None:
+        plt.ylabel(y_label)
+    if title is not None:
+        plt.title(title)
+    if x_ticks is not None:
+        plt.xticks(ind, x_ticks)
+    if stack_labels is not None:
+        plt.legend(tuple(p[0] for p in ps), stack_labels)
+    for i,bar in enumerate(ps):
+        for j,patch in enumerate(bar):
+            if show_nums is None or show_nums[i,j]:
+            # get_width pulls left or right; get_y pushes up or down
+                plt.text(patch.get_x(), sum(p[j].get_height() for p in ps[:i+1])+.005, \
+                        str(round(sum(mean[j] for mean,_ in data[:i+1]), 4)), fontsize=12)
+    if y_lim is not None:
+        plt.ylim(y_lim)
+    if file is not None:
+        plt.savefig(file)
+    return figure

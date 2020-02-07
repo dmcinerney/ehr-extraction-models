@@ -5,7 +5,7 @@ from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
 from pytt.logger import logger
-from preprocessing.dataset import init_dataset
+from processing.dataset import init_dataset
 from fairseq.legacy_distributed_data_parallel\
         import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
@@ -26,15 +26,16 @@ def main(load_checkpoint_folder=None):
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     model_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'model_state.tpkl')
     code_graph_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'code_graph.pkl')
-    batcher, model, batch_info_class = load_model_components(model_type, code_graph_file, run_type='testing', device=device, model_file=model_file)
+    batcher, model, postprocessor = load_model_components(model_type, code_graph_file, run_type='testing', device=device, model_file=model_file)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
-    tester = Tester(model, val_iterator, batch_info_class=batch_info_class)
-#    tester = Tester(model, val_iterator, batch_info_class=batch_info_class, tensorboard_dir=os.path.join(load_checkpoint_folder, 'tensorboard/test'))
-    total_batch_info = tester.test()
+    tester = Tester(model, postprocessor, val_iterator)
+#    tester = Tester(model, postprocessor, val_iterator, tensorboard_dir=os.path.join(load_checkpoint_folder, 'tensorboard/test'))
+    total_output_batch = tester.test()
     with open(os.path.join(load_checkpoint_folder, 'scores.txt'), 'w') as f:
-        f.write(str(total_batch_info))
+        f.write(str(total_output_batch))
+    total_output_batch.write_results()
 
 if __name__ == '__main__':
     main(load_checkpoint_folder=load_checkpoint_folder)

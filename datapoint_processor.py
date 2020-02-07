@@ -3,8 +3,8 @@ from model_loader import load_model_components
 
 
 class GenericProcessor(RawIndividualProcessor):
-    def __init__(self, model, batcher, batch_info_class):
-        super(GenericProcessor, self).__init__(model, batcher, batch_info_class=batch_info_class)
+    def __init__(self, model, postprocessor, batcher):
+        super(GenericProcessor, self).__init__(model, postprocessor, batcher)
 
     def process_datapoint(self, reports, query, label=None, is_nl=False):
         raw_datapoint = {'reports':reports, 'queries' if is_nl else 'targets':[query]}
@@ -14,8 +14,8 @@ class GenericProcessor(RawIndividualProcessor):
 
 class DefaultProcessor(GenericProcessor):
     def __init__(self, model_type, code_graph_file, model_file=None, device='cpu'):
-        batcher, model, batch_info_class = load_model_components(model_type, code_graph_file, run_type='applications', model_file=model_file, device=device)
-        super(DefaultProcessor, self).__init__(model, batcher, batch_info_class)
+        batcher, model, postprocessor = load_model_components(model_type, code_graph_file, run_type='applications', model_file=model_file, device=device)
+        super(DefaultProcessor, self).__init__(model, postprocessor, batcher)
 
     def takes_nl_queries(self):
         return self.batcher.code_description and not self.batcher.code_id and not self.batcher.code_linearization

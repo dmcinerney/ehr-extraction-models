@@ -1,6 +1,6 @@
 import os
 from datapoint_processor import DefaultProcessor
-from preprocessing.batcher import Batcher
+from processing.batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_valid_queries
 
