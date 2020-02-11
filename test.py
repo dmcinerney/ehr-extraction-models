@@ -6,28 +6,25 @@ from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
 from pytt.logger import logger
 from processing.dataset import init_dataset
-from fairseq.legacy_distributed_data_parallel\
-        import LegacyDistributedDataParallel as LDDP
+#from fairseq.legacy_distributed_data_parallel\
+#        import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
+from argparse import ArgumentParser
+import parameters as p
 
-val_file = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded/val.data'
-model_type = 'code_supervision_only_description_unfrozen'
-load_checkpoint_folder = 'checkpoints/code_supervision_only_description_unfrozen'
-device = 'cuda:0'
 
-def main(load_checkpoint_folder=None):
-    if load_checkpoint_folder is None:
+def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers):
+    if checkpoint_folder is None:
         seed_state()
     else:
-        set_random_state(read_pickle(os.path.join(load_checkpoint_folder, 'random_state.pkl')))
+        set_random_state(read_pickle(os.path.join(checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
-    batch_size = 8
     val_dataset = init_dataset(val_file)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
-    model_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'model_state.tpkl')
-    code_graph_file = None if load_checkpoint_folder is None else os.path.join(load_checkpoint_folder, 'code_graph.pkl')
+    model_file = os.path.join(checkpoint_folder, 'model_state.tpkl')
+    code_graph_file = os.path.join(checkpoint_folder, 'code_graph.pkl')
     batcher, model, postprocessor = load_model_components(model_type, code_graph_file, run_type='testing', device=device, model_file=model_file)
-    val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=4)
+    val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=subbatches, num_workers=num_workers)
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
     tester = Tester(model, postprocessor, val_iterator)
@@ -38,7 +35,16 @@ def main(load_checkpoint_folder=None):
     total_output_batch.write_results()
 
 if __name__ == '__main__':
-    main(load_checkpoint_folder=load_checkpoint_folder)
+    parser = ArgumentParser()
+    parser.add_argument("model_type")
+    parser.add_argument("checkpoint_folder")
+    parser.add_argument("--data_dir", default=p.data_dir)
+    parser.add_argument("--device", default="cuda:0")
+    args = parser.parse_args()
+
+    val_file = os.path.join(args.data_dir, 'val.data')
+
+    main(args.model_type, val_file, args.checkpoint_folder, device=args.device)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
-#    main_distributed(load_checkpoint_folder=load_checkpoint_folder)
+#    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)

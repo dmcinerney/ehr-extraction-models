@@ -71,7 +71,7 @@ def get_code_counts(total_num_codes, codes, code_mask, satisfied_condition):
     template_counts = torch.zeros((codes.size(0), total_num_codes), device=codes.device)
     return template_counts.scatter_add(1, codes, satisfied_condition.masked_fill(code_mask==0, 0).float()).sum(0)
 
-def get_valid_queries(file):
+def get_queries(file):
     if os.path.exists(file):
         with open(file, 'r') as f:
             return eval(f.read())

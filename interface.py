@@ -2,7 +2,7 @@ import os
 from datapoint_processor import DefaultProcessor
 from processing.batcher import Batcher
 from pytt.utils import read_pickle
-from utils import get_valid_queries
+from utils import get_queries
 
 codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl' # hack to create batcher (it is not actually used because batcher does not return anything code-related)
 model_dirs = {
@@ -13,6 +13,7 @@ model_dirs = {
     'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_description_unfrozen'),
     'code_supervision_only_linearization_unfrozen': ('code_supervision_only_linearization_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/checkpoints/code_supervision_only_linearization_unfrozen'),
 }
+
 
 class TokenizerInterface:
     def __init__(self):
@@ -48,11 +49,9 @@ class TokenizerInterface:
         }
 
 class FullModelInterface(TokenizerInterface):
-    def __init__(self):
+    def __init__(self, models_to_load=[]):
         super(FullModelInterface, self).__init__()
-        self.models = []
-#        self.models = ["cosine_similarity", "distance", "tfidf_similarity"]
-#        self.models = ["cosine_similarity", "distance", "tfidf_similarity", "code_supervision_only_description_unfrozen", "code_supervision_only_linearization_unfrozen"]
+        self.models = models_to_load
         self.dps = {
             k:DefaultProcessor(
                 model_dirs[k][0],
@@ -60,12 +59,12 @@ class FullModelInterface(TokenizerInterface):
                 model_file=os.path.join(model_dirs[k][1], 'model_state.tpkl') if model_dirs[k][1] is not None else None,
                 device='cpu')
             for k in self.models}
-        self.valid_queries = {k:get_valid_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
+        self.trained_queries = {k:get_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
                                 if model_dirs[k][1] is not None else list(self.get_descriptions().keys())
                               for k in self.models}
 
-    def get_valid_queries(self, model):
-        return self.valid_queries[model]
+    def get_trained_queries(self, model):
+        return self.trained_queries[model]
 
     def with_custom(self, model):
         return self.dps[model].takes_nl_queries()
