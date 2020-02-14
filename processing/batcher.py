@@ -42,7 +42,7 @@ class Batcher(StandardBatcher):
                         tfidf_tokenizer=self.tfidf_tokenizer,
                         filter=self.filter)
 
-def get_sentences(reports_df, num_sentences=None, filter=lambda x: True):
+def get_sentences(reports_df, num_sentences=None, filter=lambda x: True, report_max_length=1000000):
     reports_iter = list(reports_df.iterrows())
     if num_sentences is not None and num_sentences < 0:
         reports_iter = reversed(reports_iter)
@@ -54,7 +54,7 @@ def get_sentences(reports_df, num_sentences=None, filter=lambda x: True):
     sentence_count = 0
     for i,report in reports_iter:
         report_sentence_spans = []
-        sents = list(nlp(report.text).sents)
+        sents = list(nlp(report.text[:report_max_length]).sents)
         if num_sentences is not None and num_sentences < 0:
             sents = reversed(sents)
         for sent in sents:
