@@ -25,6 +25,11 @@ class OutputBatch(OB):
         return returned_stats
 
 class OutputBatchTest(OutputBatch):
+    @classmethod
+    def from_outputs(cls, postprocessor, batch, outputs):
+        postprocessor.add_summary_stats(batch, outputs)
+        return super(OutputBatchTest, cls).from_outputs(postprocessor, batch, outputs)
+
     def __init__(self, *args, **kwargs):
         kwargs['outputs'] = None
         super(OutputBatchTest, self).__init__(*args, **kwargs)

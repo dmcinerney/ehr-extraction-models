@@ -9,10 +9,10 @@ loss_func = loss_func_creator() # TODO: change this
 
 class OutputBatch(StandardOutputBatch):
     @classmethod
-    def from_outputs(cls, code_idxs, batch, outputs):
+    def from_outputs(cls, postprocessor, batch, outputs):
         loss, stats = cls.get_loss_stats(batch, outputs)
         with torch.autograd.no_grad():
-            return loss, cls(len(batch), stats, batch=batch, outputs=outputs, code_idxs=code_idxs)
+            return loss, cls(len(batch), stats, batch=batch, outputs=outputs, postprocessor=postprocessor)
 
     @classmethod
     def loss(cls, batch, outputs):
@@ -32,9 +32,9 @@ class OutputBatch(StandardOutputBatch):
         returned_stats['counts'] = counts
         return returned_stats
 
-    def __init__(self, batch_length, batch_stats, batch=None, outputs=None, code_idxs=None):
+    def __init__(self, batch_length, batch_stats, batch=None, outputs=None, postprocessor=None):
         super(OutputBatch, self).__init__(batch_length, batch_stats, batch=batch, outputs=outputs)
-        self.code_idxs = code_idxs
+        self.postprocessor = postprocessor
         if 'counts' in batch_stats.keys():
             self.counts = batch_stats['counts']
             del batch_stats['counts']
@@ -47,7 +47,7 @@ class OutputBatch(StandardOutputBatch):
 
     def __add__(self, output_batch):
         new_output_batch = super(OutputBatch, self).__add__(output_batch)
-        new_output_batch.code_idxs = self.code_idxs
+        new_output_batch.postprocessor = self.postprocessor
         new_output_batch.counts = self.counts + output_batch.counts
         return new_output_batch
 
@@ -98,7 +98,7 @@ class OutputBatch(StandardOutputBatch):
         writer.add_histogram('scores_all', scores, global_step)
         writer.add_histogram('scores_0', scores[labels==0], global_step)
         writer.add_histogram('scores_1', scores[labels==1], global_step)
-        writer.add_figure('category_scores', self.create_category_scores_figure(), global_step)
+        #writer.add_figure('category_scores', self.create_category_scores_figure(), global_step)
 
     def create_category_scores_figure(self):
         data = ((np.array([.1, .3, .2]), np.array([.01, .02, .03])),)
@@ -108,6 +108,11 @@ class OutputBatch(StandardOutputBatch):
         pass
 
 class OutputBatchTest(OutputBatch):
+    @classmethod
+    def from_outputs(cls, postprocessor, batch, outputs):
+        postprocessor.add_summary_stats(batch, outputs)
+        return super(OutputBatchTest, cls).from_outputs(postprocessor, batch, outputs)
+
     def __init__(self, *args, **kwargs):
         kwargs['outputs'] = None
         super(OutputBatchTest, self).__init__(*args, **kwargs)

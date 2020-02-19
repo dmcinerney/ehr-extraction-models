@@ -66,10 +66,13 @@ if __name__ == '__main__':
 
     train_file = os.path.join(args.data_dir, 'train.data')
     val_file = os.path.join(args.data_dir, 'val.data')
+    counts_file = os.path.join(args.data_dir, 'counts.pkl')
     used_targets_file = os.path.join(args.data_dir, 'used_targets.txt')
 
     if args.save_checkpoint_folder is not None:
         copyfile(args.code_graph_file, os.path.join(args.save_checkpoint_folder, 'code_graph.pkl'))
+        if os.path.exists(counts_file):
+            copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
         if os.path.exists(used_targets_file):
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
     main(args.model_type, train_file, args.code_graph_file, val_file=val_file,

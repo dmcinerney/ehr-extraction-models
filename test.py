@@ -1,6 +1,6 @@
 import os
 import torch
-from pytt.utils import seed_state, set_random_state, read_pickle
+from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
@@ -29,10 +29,12 @@ def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.
         model = LDDP(model, torch.distributed.get_world_size())
     tester = Tester(model, postprocessor, val_iterator)
 #    tester = Tester(model, postprocessor, val_iterator, tensorboard_dir=os.path.join(load_checkpoint_folder, 'tensorboard/test'))
+    postprocessor.add_output_dir(checkpoint_folder)
     total_output_batch = tester.test()
-    with open(os.path.join(load_checkpoint_folder, 'scores.txt'), 'w') as f:
+    with open(os.path.join(checkpoint_folder, 'scores.txt'), 'w') as f:
         f.write(str(total_output_batch))
-    total_output_batch.write_results()
+    #total_output_batch.write_results()
+    #write_pickle(postprocessor.summary_stats, os.path.join(checkpoint_folder, 'summary_stats.pkl'))
 
 if __name__ == '__main__':
     parser = ArgumentParser()

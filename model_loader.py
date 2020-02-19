@@ -16,49 +16,54 @@ model_components = {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_unfrozen': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_linearization': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_linearization=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_linearization_embeddings=batcher.graph_ops.max_index+1, device1=device, device2='cpu', freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_linearization_unfrozen': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_linearization=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_linearization_embeddings=batcher.graph_ops.max_index+1, device1=device, device2='cpu', freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_description': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_description=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_description_unfrozen': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_description=True),
         'model_class': lambda device, batcher:Model(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_individual_sentence': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
         'model_class': lambda device, batcher:Model_is(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu'),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, (OB_cs if run_type == 'training' else (OBT_cs if run_type == 'testing' else OBA_cs)))},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
+    'code_supervision_individual_sentence_unfrozen': {
+        'batcher_class': lambda code_graph, run_type: Batcher(code_graph, sample_top=100 if run_type == 'training' else None, code_id=True),
+        'model_class': lambda device, batcher:Model_is(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device1=device, device2='cpu', freeze_bert=False, dropout=0),
+        'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
     'cosine_similarity': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, add_special_tokens=False),
         'model_class': lambda device, batcher:Model_cs(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device=device),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, OBA_cs)},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, OBA_cs)},
     'distance': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, add_special_tokens=False),
         'model_class': lambda device, batcher:Model_d(sentences_per_checkpoint=17, num_codes=len(batcher.code_idxs), device=device),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, OBA_cs)},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, OBA_cs)},
     'tfidf_similarity': {
         'batcher_class': lambda code_graph, run_type: Batcher(code_graph, code_description=True, tfidf_tokenizer=True),
         'model_class': lambda device, batcher: Model_tfidf(device=device),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.code_idxs, OBA_cs)},
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.graph_ops, batcher.code_idxs, OBA_cs)},
 }
 
 

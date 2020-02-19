@@ -12,8 +12,8 @@ nlp = spacy.load('en_core_web_sm')
 
 
 class Batcher(StandardBatcher):
-    # Note: ancestors is done in preprocessing sometimes
-    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None, tfidf_tokenizer=False, add_special_tokens=True):
+    # NOTE: ancestors is done in preprocessing sometimes
+    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, sample_top=None, tfidf_tokenizer=False, add_special_tokens=True):
         self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
         self.tfidf_tokenizer = tfidf_tokenizer
@@ -27,6 +27,8 @@ class Batcher(StandardBatcher):
         self.code_id = code_id
         self.code_description = code_description
         self.code_linearization = code_linearization
+        self.description_linearization = description_linearization
+        self.description_embedding_linearization = description_embedding_linearization
         self.sample_top = sample_top
 
     def process_datapoint(self, raw_datapoint):
@@ -38,6 +40,8 @@ class Batcher(StandardBatcher):
                         code_id=self.code_id,
                         code_description=self.code_description,
                         code_linearization=self.code_linearization,
+                        description_linearization=self.description_linearization,
+                        description_embedding_linearization=self.description_embedding_linearization,
                         sample_top=self.sample_top,
                         tfidf_tokenizer=self.tfidf_tokenizer,
                         filter=self.filter)
@@ -126,6 +130,20 @@ class GraphOps:
             node = next(iter(self.graph.predecessors(node)))
         return list(reversed(backwards_options))
 
+    def path(self, node):
+        backwards_path = []
+        while self.graph.in_degree(node) > 0:
+            backwards_path.append(node)
+            node = next(iter(self.graph.predecessors(node)))
+        return list(reversed(backwards_path))
+
+    def depth(self, node):
+        depth = 0
+        while self.graph.in_degree(node) > 0:
+            depth += 1
+            node = next(iter(self.graph.predecessors(node)))
+        return depth
+
     def delinearize(self, linearized_node):
         node = self.start_node
         for i in linearized_node:
@@ -133,7 +151,7 @@ class GraphOps:
         return node
 
 class Instance(StandardInstance):
-    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, sample_top=None, tfidf_tokenizer=False, filter=lambda x: True):
+    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, sample_top=None, tfidf_tokenizer=False, filter=lambda x: True):
         self.raw_datapoint = raw_datapoint
         self.datapoint = {}
         self.observed = []
@@ -211,6 +229,42 @@ class Instance(StandardInstance):
             self.datapoint['linearized_codes_lengths'] = torch.tensor(
                 [len(linearized_code) for linearized_code in linearized_codes])
             self.observed += ['linearized_codes', 'linearized_codes_lengths']
+        if description_linearization:
+            # get description
+            # doesn't need targets as long as it has queries
+            if 'targets' in raw_datapoint.keys():
+                descriptions = [get_description_linearization(t, graph_ops) for t in targets]
+            else:
+                raise NotImplementedError # interface doesn't produce valid queries for this yet
+                descriptions = raw_datapoint['queries']
+                # if targets were not given, you still need num_codes
+                self.datapoint['num_codes'] = torch.tensor(len(descriptions))
+                self.observed += ['num_codes']
+            tokenized_description_linearizations = [tokenizer.tokenize(d) for d in descriptions]
+            if not tfidf_tokenizer:
+                self.datapoint['linearized_descriptions'] = pad_and_concat(
+                    [torch.tensor(tokenizer.convert_tokens_to_ids(d)) for d in tokenized_description_linearizations])
+                self.datapoint['linearized_descriptions_lengths'] = torch.tensor(
+                    [len(d) for d in tokenized_description_linearizations])
+                self.observed += ['linearized_descriptions', 'linearized_descriptions_lengths']
+        if description_embedding_linearization:
+            # get description
+            # doesn't need targets as long as it has queries
+            if 'targets' in raw_datapoint.keys():
+                descriptions = [get_description_embedding_linearization(t, graph_ops) for t in targets]
+            else:
+                raise NotImplementedError # interface doesn't produce valid queries for this yet
+                descriptions = raw_datapoint['queries']
+                # if targets were not given, you still need num_codes
+                self.datapoint['num_codes'] = torch.tensor(len(descriptions))
+                self.observed += ['num_codes']
+            tokenized_description_embedding_linearizations = [tokenizer.tokenize(d) for d in descriptions]
+            if not tfidf_tokenizer:
+                self.datapoint['linearized_description_embeddings'] = pad_and_concat(
+                    [torch.tensor(tokenizer.convert_tokens_to_ids(d)) for d in tokenized_description_embedding_linearizations])
+                self.datapoint['linearized_description_embeddings_lengths'] = torch.tensor(
+                    [len(d) for d in tokenized_description_embedding_linearizations])
+                self.observed += ['linearized_description_embeddings', 'linearized_description_embeddings_lengths']
 
         if tfidf_tokenizer:
             if code_description:
@@ -227,3 +281,7 @@ class Instance(StandardInstance):
 
     def keep_in_batch(self):
         return {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}
+
+def get_description_linearization(target, graph_ops):
+    targets = graph_ops.path(target)
+    return ' . '.join(d if d is not None else t for t,d in zip(targets,graph_ops.get_descriptions(targets)))

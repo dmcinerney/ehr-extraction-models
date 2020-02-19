@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 from models.clinical_bert.model import ClinicalBertWrapper, EncoderSentences
-from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts, none_to_tensor, tensor_to_none
+from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts, tensor_to_none
 
 
 class Model(nn.Module):
