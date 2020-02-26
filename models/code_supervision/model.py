@@ -45,7 +45,7 @@ class Model(nn.Module):
             self.linear2.to(self.device2)
         self.codes_per_checkpoint = 1000
 
-    def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None):
+    def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None, linearized_descriptions=None, linearized_descriptions_lengths=None):
         nq = num_codes.max()
         nq_temp =  self.codes_per_checkpoint
         scores, attention, traceback_attention = [], [], []
@@ -66,6 +66,12 @@ class Model(nn.Module):
             else:
                 linearized_codes_temp = torch.zeros(0)
                 linearized_codes_lengths_temp = torch.zeros(0)
+            if linearized_descriptions is not None:
+                linearized_descriptions_temp = linearized_descriptions[:, offset:offset+nq_temp]
+                linearized_descriptions_lengths_temp = linearized_descriptions_lengths[:, offset:offset+nq_temp]
+            else:
+                linearized_descriptions_temp = torch.zeros(0)
+                linearized_descriptions_lengths_temp = torch.zeros(0)
             num_codes_temp = torch.clamp(num_codes-offset, 0, nq_temp)
             scores_temp, attention_temp, traceback_attention_temp = checkpoint(
                 self.inner_forward,
@@ -77,6 +83,8 @@ class Model(nn.Module):
                 code_description_length_temp,
                 linearized_codes_temp,
                 linearized_codes_lengths_temp,
+                linearized_descriptions_temp,
+                linearized_descriptions_lengths_temp,
                 *self.parameters())
             scores.append(scores_temp)
             attention.append(attention_temp)
@@ -94,7 +102,7 @@ class Model(nn.Module):
             return_dict['codes'] = codes
         return return_dict
 
-    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths, *args):
+    def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths, linearized_descriptions, linearized_descriptions_lengths, *args):
         codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length), tensor_to_none(linearized_codes), tensor_to_none(linearized_codes_lengths)
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
@@ -106,7 +114,7 @@ class Model(nn.Module):
             self_attentions.mean(3).view(b*ns, nl, nt, nt),
             attention_vecs=word_level_attentions.view(b*ns, 1, nt))\
             .view(b, ns, nt)
-        if codes is None and code_description is None and linearized_codes is None: raise Exception
+        if codes is None and code_description is None and linearized_codes is None and linearized_descriptions is None: raise Exception
         all_code_embeddings = []
         if codes is not None:
             codes = codes.to(self.device2)
@@ -121,6 +129,11 @@ class Model(nn.Module):
                 linearized_codes,
                 linearized_codes_lengths
             )[0])
+        if linearized_descriptions is not None:
+            all_code_embeddings.append(self.clinical_bert_sentences(
+                linearized_descriptions,
+                linearized_descriptions_lengths,
+            )[0].to(self.device2))
         if self.linear2 is not None:
             code_embeddings = torch.cat(all_code_embeddings, 2)
             code_embeddings = self.linear2(code_embeddings)

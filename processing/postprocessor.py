@@ -29,7 +29,7 @@ class Postprocessor(StandardPostprocessor):
         b, nq, ns, nt = outputs['attention'].shape
         attention_entropy = entropy(outputs['attention'].view(b, nq, ns*nt))
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
-        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'predicted', 'depth']
+        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences']
         rows = []
         for b in range(len(batch)):
             for s in range(outputs['num_codes'][b]):
@@ -38,16 +38,18 @@ class Postprocessor(StandardPostprocessor):
                 attention = attention_entropy[b, s].item()
                 traceback_attention = traceback_attention_entropy[b, s].item()
                 label = outputs['labels'][b, s].item()
-                predicted = outputs['scores'][b, s].item() > 0
+                score = outputs['scores'][b, s].item()
                 depth = self.graph_ops.depth(codename)
+                num_report_sentences = (outputs['article_sentences_lengths'][b] > 0).sum()
                 rows.append([
                     codename,
                     code,
                     attention,
                     traceback_attention,
                     label,
-                    predicted,
+                    score,
                     depth,
+                    num_report_sentences,
                 ])
         df = pd.DataFrame(rows, columns=columns)
         file = os.path.join(self.dir, 'summary_stats.csv')

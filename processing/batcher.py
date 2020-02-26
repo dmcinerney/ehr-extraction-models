@@ -1,4 +1,4 @@
-import random
+import numpy as np
 import copy
 import torch
 from pytt.batching.standard_batcher import StandardBatcher,\
@@ -13,7 +13,7 @@ nlp = spacy.load('en_core_web_sm')
 
 class Batcher(StandardBatcher):
     # NOTE: ancestors is done in preprocessing sometimes
-    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, sample_top=None, tfidf_tokenizer=False, add_special_tokens=True):
+    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
         self.graph_ops = GraphOps(code_graph)
         self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
         self.tfidf_tokenizer = tfidf_tokenizer
@@ -23,13 +23,21 @@ class Batcher(StandardBatcher):
             self.tokenizer = BertTokenizerWrapper(with_cls=add_special_tokens, with_sep=add_special_tokens)
         bert_tokenizer = BertTokenizerWrapper() # need a special bert_tokenizer with added special tokens to filter sentences
         self.filter = lambda x: len(bert_tokenizer.tokenize(x)) > 4 # NOTE: this is hardcoded
+
         self.ancestors = ancestors
         self.code_id = code_id
         self.code_description = code_description
         self.code_linearization = code_linearization
         self.description_linearization = description_linearization
         self.description_embedding_linearization = description_embedding_linearization
-        self.sample_top = sample_top
+        self.resample_neg_proportion = resample_neg_proportion
+        if resample_neg_proportion is not None:
+            if counts is None:
+                raise Exception
+            keys, values = zip(*counts.items())
+            self.counts = pd.DataFrame(values, index=keys, columns=['negative', 'positive'])
+        else:
+            self.counts = None
 
     def process_datapoint(self, raw_datapoint):
         return Instance(raw_datapoint,
@@ -42,7 +50,8 @@ class Batcher(StandardBatcher):
                         code_linearization=self.code_linearization,
                         description_linearization=self.description_linearization,
                         description_embedding_linearization=self.description_embedding_linearization,
-                        sample_top=self.sample_top,
+                        resample_neg_proportion=self.resample_neg_proportion,
+                        counts=self.counts,
                         tfidf_tokenizer=self.tfidf_tokenizer,
                         filter=self.filter)
 
@@ -151,7 +160,7 @@ class GraphOps:
         return node
 
 class Instance(StandardInstance):
-    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, sample_top=None, tfidf_tokenizer=False, filter=lambda x: True):
+    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, filter=lambda x: True):
         self.raw_datapoint = raw_datapoint
         self.datapoint = {}
         self.observed = []
@@ -176,17 +185,21 @@ class Instance(StandardInstance):
             targets = raw_datapoint['targets']
             if 'labels' in raw_datapoint.keys():
                 labels = raw_datapoint['labels']
-                if ancestors or sample_top is not None:
+                if ancestors or resample_neg_proportion is not None:
                     positives, negatives = get_pos_neg(targets, labels)
                 if ancestors:
                     positives = graph_ops.ancestors(positives)
                     negatives = graph_ops.ancestors(negatives, stop_nodes=positives)
-                if sample_top is not None:
-                    num_pos_samples = min(len(positives), sample_top/2)
-                    positives = random.sample(positives, num_pos_samples)
-                    num_neg_samples = min(len(negatives), sample_top - num_pos_samples)
-                    negatives = random.sample(negatives, num_neg_samples)
-                if ancestors or sample_top is not None:
+                if resample_neg_proportion is not None:
+                    # sample negative according to positive prior for that code
+                    total_negatives = counts.negative.sum()
+                    individual_probs = np.array([(counts.positive[c]/(counts.positive.sum()))
+                                                 * (1/counts.negative[c]) for c in negatives])
+                    individual_probs = individual_probs/individual_probs.sum()
+                    negatives = list(np.random.choice(negatives, size=len(negatives), p=individual_probs))
+                    keep = np.random.binomial(len(negatives), resample_neg_proportion)
+                    negatives = negatives[:keep]
+                if ancestors or resample_neg_proportion is not None:
                     targets, labels = get_targets_labels(positives, negatives)
                 self.datapoint['labels'] = torch.tensor(labels)
             self.datapoint['codes'] = torch.tensor([codes[code_str] for code_str in targets])
