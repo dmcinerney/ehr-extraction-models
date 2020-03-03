@@ -1,6 +1,7 @@
 pretrained_model = '/home/jered/Documents/projects/clinical-bert/clinical-bert-weights'
 code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
-data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/FinalPreprocessedData/reports_and_codes_expanded'
+#data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/FinalPreprocessedData/reports_and_codes_expanded'
+data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/mini'
 
 # training params
 batch_size = 8

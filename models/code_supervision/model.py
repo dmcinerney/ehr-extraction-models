@@ -103,7 +103,7 @@ class Model(nn.Module):
         return return_dict
 
     def inner_forward(self, article_sentences, article_sentences_lengths, num_codes, codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths, linearized_descriptions, linearized_descriptions_lengths, *args):
-        codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length), tensor_to_none(linearized_codes), tensor_to_none(linearized_codes_lengths)
+        codes, code_description, code_description_length, linearized_codes, linearized_codes_lengths, linearized_descriptions, linearized_descriptions_lengths = tensor_to_none(codes), tensor_to_none(code_description), tensor_to_none(code_description_length), tensor_to_none(linearized_codes), tensor_to_none(linearized_codes_lengths), tensor_to_none(linearized_descriptions), tensor_to_none(linearized_descriptions_lengths)
         encodings, self_attentions, word_level_attentions = self.clinical_bert_sentences(
             article_sentences, article_sentences_lengths)
         article_sentences_lengths, num_codes, encodings, self_attentions, word_level_attentions =\

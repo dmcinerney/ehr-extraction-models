@@ -75,6 +75,7 @@ class FullModelInterface(TokenizerInterface):
     def query_reports(self, model, reports, query, is_nl=False):
         results = self.dps[model].process_datapoint(reports, query, is_nl=is_nl).results
         attention = results['attention'][0,0]
+        # TODO: need to adjust this to cover if attention is all zero
         min_avged = attention.sum(1, keepdim=True).min()/attention.size(1)
         sentence_level_attention = (attention-min_avged)/(attention.sum(1, keepdim=True).max()+.0001-min_avged)
         attention = (attention-attention.min())/(attention.max()-attention.min())
