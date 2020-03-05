@@ -2,6 +2,7 @@ import os
 from shutil import copyfile
 import torch
 from pytt.utils import seed_state, set_random_state, read_pickle
+from pytt.email import EmailSender
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.training.trainer import Trainer
 from pytt.training.tracker import Tracker
@@ -17,7 +18,7 @@ import parameters as p
 
 def main(model_type, train_file, code_graph_file, counts_file, val_file=None, save_checkpoint_folder=None, load_checkpoint_folder=None, device='cuda:0',
          batch_size=p.batch_size, epochs=p.epochs, limit_rows_train=p.limit_rows_train, limit_rows_val=p.limit_rows_val, subbatches=p.subbatches,
-         num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, val_every=p.val_every):
+         num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, val_every=p.val_every, email_every=p.email_every, email_sender=None):
     if load_checkpoint_folder is None:
         seed_state()
     else:
@@ -47,13 +48,17 @@ def main(model_type, train_file, code_graph_file, counts_file, val_file=None, sa
         val_iterator = None
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
-    tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=checkpoint_every)
+    tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=checkpoint_every, email_every=email_every, email_sender=email_sender)
 #    if load_checkpoint_folder is not None:
 #        tracker.needs_graph = False
     tracker.needs_graph = False
     trainer = Trainer(model, postprocessor, optimizer, batch_iterator, val_iterator=val_iterator, val_every=val_every, tracker=tracker)
     with torch.autograd.set_detect_anomaly(False):
-        trainer.train()
+        try:
+            trainer.train()
+        except Exception as e:
+            email_sender("got an exception:\n%s" % e)
+            raise e
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -63,7 +68,11 @@ if __name__ == '__main__':
     parser.add_argument("--save_checkpoint_folder", default=None)
     parser.add_argument("--load_checkpoint_folder", default=None)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--password", default=None)
     args = parser.parse_args()
+
+    email_sender = EmailSender(sender_email=p.sender_email, sender_password=args.password, receiver_email=p.receiver_email, subject="Training %s model" % args.model_type)
+    email_sender.send_email("starting to train %s model" % args.model_type)
 
     train_file = os.path.join(args.data_dir, 'train.data')
     val_file = os.path.join(args.data_dir, 'val.data')
@@ -78,9 +87,9 @@ if __name__ == '__main__':
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
     main(args.model_type, train_file, args.code_graph_file, counts_file, val_file=val_file,
          save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-         device=args.device)
+         device=args.device, email_sender=email_sender)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
 #    main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,
 #         save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-#         device=args.device)
+#         device=args.device, email_sender=email_sender)
