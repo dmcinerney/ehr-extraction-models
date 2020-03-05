@@ -1,4 +1,5 @@
 import os
+import socket
 from shutil import copyfile
 import torch
 from pytt.utils import seed_state, set_random_state, read_pickle
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     parser.add_argument("--password", default=None)
     args = parser.parse_args()
 
-    email_sender = EmailSender(sender_email=p.sender_email, sender_password=args.password, receiver_email=p.receiver_email, subject="Training %s model" % args.model_type)
+    email_sender = EmailSender(sender_email=p.sender_email, sender_password=args.password, receiver_email=p.receiver_email, subject="%s: training %s model" % (socket.gethostname(), args.model_type))
     email_sender.send_email("starting to train %s model" % args.model_type)
 
     train_file = os.path.join(args.data_dir, 'train.data')
