@@ -7,12 +7,13 @@ data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/mini'
 
 # training params
 batch_size = 8
-epochs = 2
+epochs = 4
 limit_rows_train = None
 limit_rows_val = None
 subbatches = 4
 num_workers = 0
 checkpoint_every = 10
+copy_checkpoint_every = 100
 val_every = 10
 email_every = 30
 sender_email = 'jeredspython@gmail.com'

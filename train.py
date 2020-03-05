@@ -19,7 +19,8 @@ import parameters as p
 
 def main(model_type, train_file, code_graph_file, counts_file, val_file=None, save_checkpoint_folder=None, load_checkpoint_folder=None, device='cuda:0',
          batch_size=p.batch_size, epochs=p.epochs, limit_rows_train=p.limit_rows_train, limit_rows_val=p.limit_rows_val, subbatches=p.subbatches,
-         num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, val_every=p.val_every, email_every=p.email_every, email_sender=None):
+         num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, copy_checkpoint_every=p.copy_checkpoint_every, val_every=p.val_every,
+         email_every=p.email_every, email_sender=None):
     if load_checkpoint_folder is None:
         seed_state()
     else:
@@ -49,7 +50,8 @@ def main(model_type, train_file, code_graph_file, counts_file, val_file=None, sa
         val_iterator = None
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
-    tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=checkpoint_every, email_every=email_every, email_sender=email_sender)
+    tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=checkpoint_every, copy_checkpoint_every=copy_checkpoint_every,
+                      email_every=email_every, email_sender=email_sender)
 #    if load_checkpoint_folder is not None:
 #        tracker.needs_graph = False
     tracker.needs_graph = False
