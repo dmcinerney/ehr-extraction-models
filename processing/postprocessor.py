@@ -29,9 +29,11 @@ class Postprocessor(StandardPostprocessor):
         b, nq, ns, nt = outputs['attention'].shape
         attention_entropy = entropy(outputs['attention'].view(b, nq, ns*nt))
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
-        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences']
+        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences', 'patient_id', 'timepoint_id']
         rows = []
         for b in range(len(batch)):
+            patient_id = int(batch.instances[b]['original_reports'].patient_id.iloc[0])
+            last_report_id = batch.instances[b]['original_reports'].index[-1]
             for s in range(outputs['num_codes'][b]):
                 code = outputs['codes'][b, s].item()
                 codename = self.code_names[code]
@@ -50,8 +52,14 @@ class Postprocessor(StandardPostprocessor):
                     score,
                     depth,
                     num_report_sentences,
+                    patient_id,
+                    last_report_id,
                 ])
         df = pd.DataFrame(rows, columns=columns)
         file = os.path.join(self.dir, 'summary_stats.csv')
         header = True if not os.path.exists(file) else False
         df.to_csv(file, mode='a', header=header)
+
+    def get_summary_attachment_generator(self):
+        with open(os.path.join(self.dir, 'summary_stats.csv'), 'rb') as file:
+            yield 'summmary_stats', 'summary_stats.csv', file

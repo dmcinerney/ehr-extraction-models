@@ -1,6 +1,6 @@
 import os
 from pytt.utils import read_pickle
-from utils import get_valid_queries
+from utils import get_queries
 
 dataset = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 # need to add support for ancestors
@@ -10,7 +10,7 @@ rebalanced = True
 counts_file = os.path.join(dataset, 'counts.pkl')
 used_targets_file = os.path.join(dataset, 'used_targets.txt')
 
-used_targets = get_valid_queries(used_targets_file)
+used_targets = get_queries(used_targets_file)
 counts = read_pickle(counts_file)
 
 micro_counts = [[], [], []]

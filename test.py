@@ -1,6 +1,8 @@
 import os
 import torch
+import socket
 from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
+from pytt.email import EmailSender
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
@@ -13,7 +15,7 @@ from argparse import ArgumentParser
 import parameters as p
 
 
-def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers):
+def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None):
     if checkpoint_folder is None:
         seed_state()
     else:
@@ -35,6 +37,9 @@ def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.
         f.write(str(total_output_batch))
     #total_output_batch.write_results()
     #write_pickle(postprocessor.summary_stats, os.path.join(checkpoint_folder, 'summary_stats.pkl'))
+    if email_sender is not None:
+        attachments = postprocessor.get_summary_attachment_generator()
+        email_sender.send_email("Testing is done!\n\n"+str(total_output_batch), attachments=attachments)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -42,11 +47,19 @@ if __name__ == '__main__':
     parser.add_argument("checkpoint_folder")
     parser.add_argument("--data_dir", default=p.data_dir)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("-e", "--email", action="store_true")
+    parser.add_argument("--sender_password", default=None)
     args = parser.parse_args()
+
+    if args.email:
+        email_sender = EmailSender(smtp_server=p.smtp_server, port=p.port, sender_email=p.sender_email, sender_password=args.sender_password, receiver_email=p.receiver_email, subject="%s: testing %s model" % (socket.gethostname(), args.model_type))
+        email_sender.send_email("Starting to test %s model." % args.model_type)
+    else:
+        email_sender = None
 
     val_file = os.path.join(args.data_dir, 'val.data')
 
-    main(args.model_type, val_file, args.checkpoint_folder, device=args.device)
+    main(args.model_type, val_file, args.checkpoint_folder, device=args.device, email_sender=email_sender)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
 #    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)
