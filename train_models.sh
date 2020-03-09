@@ -27,19 +27,17 @@ then
     exit 1
 fi
 CHECKPOINTS=${PARAMS[0]}
-echo $CHECKPOINTS
-echo $E
 if [ $E ]
 then
     read -s -p "Enter Password: " pswd
     echo
-    ARGS=( "--password" "$pswd" "-e" )
+    ARGS=( "--sender_password" "$pswd" "-e" )
 else
     ARGS=()
 fi
-echo "${ARGS[*]}"
-mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
-python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}"
+#mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
+python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
+#python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}"
 mkdir "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
 python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}"
 mkdir "${CHECKPOINTS}/code_supervision_unfrozen"
