@@ -110,12 +110,30 @@ class OutputBatch(StandardOutputBatch):
 class OutputBatchTest(OutputBatch):
     @classmethod
     def from_outputs(cls, postprocessor, batch, outputs):
-        postprocessor.add_summary_stats(batch, outputs)
-        return super(OutputBatchTest, cls).from_outputs(postprocessor, batch, outputs)
+        summary_counts = postprocessor.add_summary_stats(batch, outputs)
+        loss, stats = cls.get_loss_stats(batch, outputs)
+        with torch.autograd.no_grad():
+            return loss, cls(len(batch), stats, batch=batch, outputs=outputs, postprocessor=postprocessor, summary_counts=summary_counts)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, summary_counts=None, **kwargs):
         kwargs['outputs'] = None
         super(OutputBatchTest, self).__init__(*args, **kwargs)
+        self.summary_counts = summary_counts
+
+    def __add__(self, output_batch):
+        new_output_batch = super(OutputBatchTest, self).__add__(output_batch)
+        if self.summary_counts is not None:
+            new_output_batch.summary_counts = self.summary_counts + output_batch.summary_counts
+        else:
+            new_output_batch.summary_counts = None
+        return new_output_batch
+
+    def __str__(self):
+        original_string = super(OutputBatchTest, self).__str__()
+        if self.summary_counts is not None:
+            original_string += "\nsummary - p: %f, r: %f, f1: %f" %\
+                precision_recall_f1(*list(self.summary_counts))
+        return original_string
 
     def write_to_tensorboard(self, *args, **kwargs):
         return

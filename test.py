@@ -8,15 +8,15 @@ from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
 from pytt.logger import logger
 from processing.dataset import init_dataset
+from hierarchy import Hierarchy
 #from fairseq.legacy_distributed_data_parallel\
 #        import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components
 from argparse import ArgumentParser
 import parameters as p
-from hierarchy import Hierarchy
 
 
-def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None):
+def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None, results_folder=None):
     if checkpoint_folder is None:
         seed_state()
     else:
@@ -31,7 +31,10 @@ def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, d
         model = LDDP(model, torch.distributed.get_world_size())
     tester = Tester(model, postprocessor, val_iterator)
 #    tester = Tester(model, postprocessor, val_iterator, tensorboard_dir=os.path.join(load_checkpoint_folder, 'tensorboard/test'))
-    postprocessor.add_output_dir(checkpoint_folder)
+    if results_folder is None:
+        results_folder = os.path.join(checkpoint_folder, 'results')
+    os.mkdir(results_folder)
+    postprocessor.add_output_dir(results_folder)
     total_output_batch = tester.test()
     with open(os.path.join(checkpoint_folder, 'scores.txt'), 'w') as f:
         f.write(str(total_output_batch))
@@ -51,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument("--sender_password", default=None)
     parser.add_argument("-s", "--supervised", action="store_true")
     parser.add_argument("--hierarchy", default=None)
+    parser.add_argument("--results_folder", default=None)
     args = parser.parse_args()
 
     if args.email:
@@ -63,7 +67,7 @@ if __name__ == '__main__':
                 if args.hierarchy is not None else\
                 os.path.join(checkpoint_folder, 'hierarchy.pkl')
 
-    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender)
+    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
 #    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)

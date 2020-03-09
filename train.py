@@ -2,7 +2,7 @@ import os
 import socket
 from shutil import copyfile
 import torch
-from pytt.utils import seed_state, set_random_state, read_pickle
+from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
 from pytt.email import EmailSender
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.training.trainer import Trainer
@@ -10,6 +10,7 @@ from pytt.training.tracker import Tracker
 from pytt.distributed import distributed_wrapper
 from pytt.logger import logger
 from processing.dataset import init_dataset
+from hierarchy import Hierarchy
 #from fairseq.legacy_distributed_data_parallel\
 #        import LegacyDistributedDataParallel as LDDP
 from model_loader import load_model_components

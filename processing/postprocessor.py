@@ -11,7 +11,7 @@ class Postprocessor(StandardPostprocessor):
         self.code_names = {v:k for k,v in code_idxs.items()}
         self.output_batch_class = output_batch_class
         self.dir = None
-        self.k = 20
+        self.k = 100
 
     def add_output_dir(self, dir):
         self.dir = dir
@@ -33,16 +33,18 @@ class Postprocessor(StandardPostprocessor):
         if self.dir is None:
             print("No output directory! Results not being recorded.")
             return
+        supervised = 'annotations' in batch.instances[0].keys()
         b, nq, ns, nt = outputs['attention'].shape
         attention_entropy = entropy(outputs['attention'].view(b, nq, ns*nt))
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
-        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences', 'patient_id', 'timepoint_id']
+        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences', 'patient_id', 'timepoint_id', 'reference_sentence_rankings']
         rows = []
         for b in range(len(batch)):
             patient_id = int(batch.instances[b]['original_reports'].patient_id.iloc[0])
             last_report_id = batch.instances[b]['original_reports'].index[-1]
             tokenized_sentences = batch.instances[b]['tokenized_sentences']
-            annotations = eval(batch.instances[b]['annotations'])
+            if supervised:
+                annotations = eval(batch.instances[b]['annotations'])
             for s in range(outputs['num_codes'][b]):
                 code = outputs['codes'][b, s].item()
                 codename = self.code_names[code]
@@ -52,6 +54,24 @@ class Postprocessor(StandardPostprocessor):
                 score = outputs['scores'][b, s].item()
                 depth = self.hierarchy.depth(codename)
                 num_report_sentences = (outputs['article_sentences_lengths'][b] > 0).sum()
+                if supervised:
+                    sentences = [' '.join(tokenized_sentences[cluster[0]]) for cluster in outputs['clustering'][b][s]]
+                    summary = '\n'.join(sentences[:self.k])
+                    id = len(os.listdir(self.system_dir))
+                    with open(os.path.join(self.system_dir, 'summary_%i_system.txt' % id), 'w') as f:
+                        f.write(summary)
+                    reference_sentences_set = set([])
+                    for annotator,v in annotations.items():
+                        reference_sentences = [' '.join(tokenized_sentences[int(i)]) for i in v['past-reports']['tag_sentences'][codename]]
+                        reference_sentences_set.update(reference_sentences)
+                        reference = '\n'.join(reference_sentences)
+                        with open(os.path.join(self.reference_dir, 'summary_%i_%s.txt' % (id, annotator)), 'w') as f:
+                            f.write(reference)
+                    sentence_to_ranking = {sentence:i for i,sentence in enumerate(sentences)}
+                    reference_sentence_rankings = [sentence_to_ranking[s] for s in reference_sentences_set]
+                else:
+                    reference_sentence_rankings = None
+                # NOTE: cannot include summaries here because this file might be emailed and summaries contain phi!
                 rows.append([
                     codename,
                     code,
@@ -63,16 +83,8 @@ class Postprocessor(StandardPostprocessor):
                     num_report_sentences,
                     patient_id,
                     last_report_id,
+                    reference_sentence_rankings,
                 ])
-                summary = '\n'.join([' '.join(tokenized_sentences[cluster[0]]) for cluster in outputs['clustering'][b][s][:self.k]])
-                id = len(os.listdir(self.system_dir))
-                with open(os.path.join(self.system_dir, 'summary_%i_system.txt' % id), 'w') as f:
-                    f.write(summary)
-                for annotator,v in annotations.items():
-                    reference = '\n'.join([' '.join(tokenized_sentences[int(i)]) for i in v['past-reports']['tag_sentences'][codename]])
-                    with open(os.path.join(self.reference_dir, 'summary_%i_%s.txt' % (id, annotator)), 'w') as f:
-                        f.write(reference)
-                    import pdb; pdb.set_trace()
         df = pd.DataFrame(rows, columns=columns)
         file = os.path.join(self.dir, 'summary_stats.csv')
         header = True if not os.path.exists(file) else False

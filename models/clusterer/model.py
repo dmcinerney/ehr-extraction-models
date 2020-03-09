@@ -12,8 +12,9 @@ class Clusterer(nn.Module):
         #return article_sentences.unsqueeze(-1), clustering_lengths
         # exact-match clusters
         mask = article_sentences_lengths == 0
+        num_sentences = (article_sentences_lengths != 0).sum(1)
         sentence_attention = attention.sum(-1)
-        sentence_attention[mask.unsqueeze(1).expand(sentence_attention.shape)] = 0
+        sentence_attention[mask.unsqueeze(1).expand(sentence_attention.shape)] = -1
         sorted_indices = torch.argsort(-sentence_attention)
         #similarity = (article_sentences.to(self.device) @ article_sentences.to(self.device).transpose(-1, -2)).unsqueeze(-1)
         clustering = []
@@ -22,7 +23,8 @@ class Clusterer(nn.Module):
             for c in range(num_codes[b]):
                 clustering[-1].append([])
                 groups = {}
-                for s in sorted_indices[b, c]:
+                for i in range(num_sentences[b]):
+                    s = sorted_indices[b, c, i]
                     sentence = tuple(article_sentences[b, s].tolist())
                     if sentence not in groups.keys():
                         groups[sentence] = len(groups)
