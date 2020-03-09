@@ -2,9 +2,10 @@ import torch
 from torch import nn
 
 class Model(nn.Module):
-    def __init__(self, device='cpu'):
+    def __init__(self, device='cpu', cluster=False):
         super(Model, self).__init__()
         self.device = device
+        self.cluster = cluster
 
     def correct_devices(self):
         pass

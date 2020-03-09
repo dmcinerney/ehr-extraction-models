@@ -13,9 +13,10 @@ from processing.dataset import init_dataset
 from model_loader import load_model_components
 from argparse import ArgumentParser
 import parameters as p
+from hierarchy import Hierarchy
 
 
-def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None):
+def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None):
     if checkpoint_folder is None:
         seed_state()
     else:
@@ -24,8 +25,7 @@ def main(model_type, val_file, checkpoint_folder, device='cuda:0', batch_size=p.
     val_dataset = init_dataset(val_file)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     model_file = os.path.join(checkpoint_folder, 'model_state.tpkl')
-    code_graph_file = os.path.join(checkpoint_folder, 'code_graph.pkl')
-    batcher, model, postprocessor = load_model_components(model_type, code_graph_file, run_type='testing', device=device, model_file=model_file)
+    batcher, model, postprocessor = load_model_components(model_type, hierarchy, run_type='testing', device=device, model_file=model_file, cluster=supervised)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=subbatches, num_workers=num_workers)
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
@@ -45,10 +45,12 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("model_type")
     parser.add_argument("checkpoint_folder")
-    parser.add_argument("--data_dir", default=p.data_dir)
+    parser.add_argument("--data_file", default=os.path.join(p.data_dir, 'val.data'))
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("-e", "--email", action="store_true")
     parser.add_argument("--sender_password", default=None)
+    parser.add_argument("-s", "--supervised", action="store_true")
+    parser.add_argument("--hierarchy", default=None)
     args = parser.parse_args()
 
     if args.email:
@@ -57,9 +59,11 @@ if __name__ == '__main__':
     else:
         email_sender = None
 
-    val_file = os.path.join(args.data_dir, 'val.data')
+    hierarchy = Hierarchy.from_dict(read_pickle(args.hierarchy))\
+                if args.hierarchy is not None else\
+                os.path.join(checkpoint_folder, 'hierarchy.pkl')
 
-    main(args.model_type, val_file, args.checkpoint_folder, device=args.device, email_sender=email_sender)
+    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
 #    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)

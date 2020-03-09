@@ -17,7 +17,7 @@ from shutil import copyfile
 from argparse import ArgumentParser
 import parameters as p
 
-def main(model_type, train_file, code_graph_file, counts_file, val_file=None, save_checkpoint_folder=None, load_checkpoint_folder=None, device='cuda:0',
+def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_checkpoint_folder=None, load_checkpoint_folder=None, device='cuda:0',
          batch_size=p.batch_size, epochs=p.epochs, limit_rows_train=p.limit_rows_train, limit_rows_val=p.limit_rows_val, subbatches=p.subbatches,
          num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, copy_checkpoint_every=p.copy_checkpoint_every, val_every=p.val_every,
          email_every=None, email_sender=None):
@@ -41,7 +41,7 @@ def main(model_type, train_file, code_graph_file, counts_file, val_file=None, sa
             val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
             val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
-    batcher, model, postprocessor, optimizer = load_model_components(model_type, code_graph_file, device=device, model_file=model_file,
+    batcher, model, postprocessor, optimizer = load_model_components(model_type, hierarchy, device=device, model_file=model_file,
                                                                      optimizer_file=optimizer_file, counts_file=counts_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=subbatches, num_workers=num_workers)
     if val_file is not None:
@@ -88,13 +88,15 @@ if __name__ == '__main__':
     counts_file = os.path.join(args.data_dir, 'counts.pkl')
     used_targets_file = os.path.join(args.data_dir, 'used_targets.txt')
 
+    hierarchy = Hierarchy.from_graph(read_pickle(args.code_graph_file))
+
     if args.save_checkpoint_folder is not None:
-        copyfile(args.code_graph_file, os.path.join(args.save_checkpoint_folder, 'code_graph.pkl'))
+        write_pickle(hierarchy.to_dict(), os.path.join(args.save_checkpoint_folder, 'hierarchy.pkl'))
         if os.path.exists(counts_file):
             copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
         if os.path.exists(used_targets_file):
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
-    main(args.model_type, train_file, args.code_graph_file, counts_file, val_file=val_file,
+    main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
          save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
          device=args.device, email_every=email_every, email_sender=email_sender)
 #    nprocs = 2

@@ -4,11 +4,12 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 from models.clinical_bert.model import ClinicalBertWrapper, EncoderSentences
+from models.clusterer.model import Clusterer
 from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts, tensor_to_none
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes=0, num_linearization_embeddings=0, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, num_code_embedding_types=1, dropout=.15):
+    def __init__(self, num_codes=0, num_linearization_embeddings=0, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, code_embedding_types=set([]), dropout=.15, cluster=False):
         super(Model, self).__init__()
         self.num_codes = num_codes
         self.num_linearization_embeddings = num_linearization_embeddings
@@ -17,15 +18,19 @@ class Model(nn.Module):
             self.freeze_bert()
         else:
             self.unfreeze_bert(dropout=dropout)
-        self.code_embeddings = nn.Embedding(num_codes, outdim) if num_codes > 0 else None
+        num_code_embedding_types = len(code_embedding_types)
+        self.code_embeddings = nn.Embedding(num_codes, outdim)\
+                               if num_codes > 0 and 'codes' in code_embedding_types else None
         self.linearized_code_transformer = EncoderSentences(lambda : LinearizedCodesTransformer(num_linearization_embeddings), embedding_dim=outdim, truncate_tokens=50,
                                                             truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device2)\
-                                           if num_linearization_embeddings > 0 else None
+                                           if num_linearization_embeddings > 0 and 'linearized_codes' in code_embedding_types else None
         self.attention = nn.MultiheadAttention(outdim, 1)
         self.linear = nn.Linear(outdim, 1)
         self.linear2 = nn.Linear(outdim*num_code_embedding_types, outdim) if num_code_embedding_types > 1 else None
         self.device1 = device1
         self.device2 = device2
+        self.cluster = cluster
+        self.clusterer = Clusterer() if cluster else None
 
     def freeze_bert(self):
         set_dropout(self.clinical_bert_sentences, 0)
@@ -44,6 +49,8 @@ class Model(nn.Module):
         if self.linear2 is not None:
             self.linear2.to(self.device2)
         self.codes_per_checkpoint = 1000
+        if self.cluster:
+            self.clusterer.to(self.device2)
 
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None, linearized_descriptions=None, linearized_descriptions_lengths=None):
         nq = num_codes.max()
@@ -92,12 +99,17 @@ class Model(nn.Module):
         scores = torch.cat(scores, 1)
         attention = torch.cat(attention, 1)
         traceback_attention = torch.cat(traceback_attention, 1)
+        if self.cluster:
+            clustering = self.clusterer(article_sentences, article_sentences_lengths, attention, num_codes)
+        else:
+            clustering = None
         return_dict = dict(
             scores=scores,
             num_codes=num_codes,
             attention=attention,
             traceback_attention=traceback_attention,
-            article_sentences_lengths=article_sentences_lengths)
+            article_sentences_lengths=article_sentences_lengths,
+            clustering=clustering)
         if codes is not None:
             return_dict['codes'] = codes
         return return_dict
@@ -153,7 +165,7 @@ class Model(nn.Module):
         scores = self.linear(encoding)
         return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
 
-def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
+def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
@@ -168,12 +180,12 @@ def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, tra
     return loss
 
 def loss_func_creator(attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
-    def loss_func_wrapper(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels):
-        return abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels,
+    def loss_func_wrapper(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels):
+        return abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels,
                                   attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
     return loss_func_wrapper
 
-def statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, labels):
+def statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels):
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
     positives = get_code_counts(total_num_codes, codes, code_mask, (scores > 0))

@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 import torch
 from pytt.batching.standard_batcher import StandardBatcher,\
                                            StandardInstance,\
@@ -8,14 +7,15 @@ from pytt.utils import pad_and_concat
 import spacy
 import pandas as pd
 from .tokenizer import TfidfTokenizerWrapper, BertTokenizerWrapper
+from hierarchy import Hierarchy
 nlp = spacy.load('en_core_web_sm')
 
 
 class Batcher(StandardBatcher):
     # NOTE: ancestors is done in preprocessing sometimes
-    def __init__(self, code_graph, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
-        self.graph_ops = GraphOps(code_graph)
-        self.code_idxs = {code:i for i,code in enumerate(sorted(code_graph.nodes))}
+    def __init__(self, hierarchy, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
+        self.hierarchy = hierarchy
+        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
         self.tfidf_tokenizer = tfidf_tokenizer
         if tfidf_tokenizer:
             self.tokenizer = TfidfTokenizerWrapper()
@@ -39,11 +39,25 @@ class Batcher(StandardBatcher):
         else:
             self.counts = None
 
+    def get_code_embedding_types(self):
+        code_embedding_types = set([])
+        if self.code_id:
+            code_embedding_types.add('codes')
+        if self.code_description:
+            code_embedding_types.add('descriptions')
+        if self.code_linearization:
+            code_embedding_types.add('linearized_codes')
+        if self.description_linearization:
+            code_embedding_types.add('linearized_descriptions')
+        if self.description_embedding_linearization:
+            code_embedding_types.add('linearized_description_embeddings')
+        return code_embedding_types
+
     def process_datapoint(self, raw_datapoint):
         return Instance(raw_datapoint,
                         self.tokenizer,
                         self.code_idxs,
-                        self.graph_ops,
+                        self.hierarchy,
                         ancestors=self.ancestors,
                         code_id=self.code_id,
                         code_description=self.code_description,
@@ -99,68 +113,9 @@ def get_pos_neg(targets, labels):
 def get_targets_labels(pos, neg):
     return pos + neg, [1]*len(pos) + [0]*len(neg)
 
-class GraphOps:
-    # ASSUMES THE GRAPH IS A DAG WITH ONLY ONE NODE OF IN_DEGREE 0!
-    def __init__(self, graph):
-        self.graph = graph
-        self.node_option_idx = {}
-        self.node_idx_option = {}
-        self.max_index = -1
-        for n in self.graph.nodes:
-            if self.graph.in_degree(n) == 0:
-                self.start_node = n
-            self.node_idx_option[n] = []
-            for i,succ in enumerate(self.graph.successors(n)):
-                self.node_option_idx[succ] = i
-                self.node_idx_option[n].append(succ)
-                self.max_index = max(self.max_index, i)
-
-    def ancestors(self, nodes, stop_nodes=set()):
-        node_stack = copy.deepcopy(nodes)
-        new_nodes = set()
-        while len(node_stack) > 0:
-            node = node_stack.pop()
-            if node in stop_nodes: continue # don't add stop nodes
-            if node in new_nodes: continue # don't add nodes already there
-            in_degree = self.graph.in_degree(node)
-            if in_degree == 0: continue # don't add the start node
-            elif in_degree > 1: raise Exception # shouldn't have any nodes with more than one parent
-            new_nodes.add(node)
-            node_stack.extend(list(graph.predecessors(node)))
-        return list(new_nodes)
-
-    def get_descriptions(self, nodes):
-        return [self.graph.nodes[node]['description'] for node in nodes]
-
-    def linearize(self, node):
-        backwards_options = []
-        while self.graph.in_degree(node) > 0:
-            backwards_options.append(self.node_option_idx[node])
-            node = next(iter(self.graph.predecessors(node)))
-        return list(reversed(backwards_options))
-
-    def path(self, node):
-        backwards_path = []
-        while self.graph.in_degree(node) > 0:
-            backwards_path.append(node)
-            node = next(iter(self.graph.predecessors(node)))
-        return list(reversed(backwards_path))
-
-    def depth(self, node):
-        depth = 0
-        while self.graph.in_degree(node) > 0:
-            depth += 1
-            node = next(iter(self.graph.predecessors(node)))
-        return depth
-
-    def delinearize(self, linearized_node):
-        node = self.start_node
-        for i in linearized_node:
-            node = self.node_idx_option[node][i]
-        return node
 
 class Instance(StandardInstance):
-    def __init__(self, raw_datapoint, tokenizer, codes, graph_ops, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, filter=lambda x: True):
+    def __init__(self, raw_datapoint, tokenizer, codes, hierarchy, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, filter=lambda x: True):
         self.raw_datapoint = raw_datapoint
         self.datapoint = {}
         self.observed = []
@@ -188,8 +143,8 @@ class Instance(StandardInstance):
                 if ancestors or resample_neg_proportion is not None:
                     positives, negatives = get_pos_neg(targets, labels)
                 if ancestors:
-                    positives = graph_ops.ancestors(positives)
-                    negatives = graph_ops.ancestors(negatives, stop_nodes=positives)
+                    positives = hierarchy.ancestors(positives)
+                    negatives = hierarchy.ancestors(negatives, stop_nodes=positives)
                 if resample_neg_proportion is not None:
                     # sample negative according to positive prior for that code
                     total_negatives = counts.negative.sum()
@@ -218,7 +173,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = (d if d is not None else t for t,d in zip(targets,graph_ops.get_descriptions(targets)))
+                descriptions = (d if d is not None else t for t,d in zip(targets,hierarchy.get_descriptions(targets)))
             else:
                 descriptions = raw_datapoint['queries']
                 # if targets were not given, you still need num_codes
@@ -236,7 +191,7 @@ class Instance(StandardInstance):
             # needs targets
             if 'targets' not in raw_datapoint.keys():
                 raise Exception
-            linearized_codes = [graph_ops.linearize(target) for target in targets]
+            linearized_codes = [hierarchy.linearize(target) for target in targets]
             self.datapoint['linearized_codes'] = pad_and_concat(
                 [torch.tensor(linearized_code) for linearized_code in linearized_codes])
             self.datapoint['linearized_codes_lengths'] = torch.tensor(
@@ -246,7 +201,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = [get_description_linearization(t, graph_ops) for t in targets]
+                descriptions = [get_description_linearization(t, hierarchy) for t in targets]
             else:
                 raise NotImplementedError # interface doesn't produce valid queries for this yet
                 descriptions = raw_datapoint['queries']
@@ -264,7 +219,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = [get_description_embedding_linearization(t, graph_ops) for t in targets]
+                descriptions = [get_description_embedding_linearization(t, hierarchy) for t in targets]
             else:
                 raise NotImplementedError # interface doesn't produce valid queries for this yet
                 descriptions = raw_datapoint['queries']
@@ -291,10 +246,12 @@ class Instance(StandardInstance):
             self.datapoint['num_sentences'] = torch.tensor(len(self.tokenized_sentences))
             self.observed += ['article_sentences', 'num_sentences']
 
-
     def keep_in_batch(self):
-        return {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}
+        keep_in_batch_dict = {'tokenized_sentences':self.tokenized_sentences, 'sentence_spans':self.sentence_spans, 'original_reports':self.raw_datapoint['reports']}
+        if 'annotations' in self.raw_datapoint.keys():
+            keep_in_batch_dict['annotations'] = self.raw_datapoint['annotations']
+        return keep_in_batch_dict
 
-def get_description_linearization(target, graph_ops):
-    targets = graph_ops.path(target)
-    return ' . '.join(d if d is not None else t for t,d in zip(targets,graph_ops.get_descriptions(targets)))
+def get_description_linearization(target, hierarchy):
+    targets = hierarchy.path(target)
+    return ' . '.join(d if d is not None else t for t,d in zip(targets,hierarchy.get_descriptions(targets)))
