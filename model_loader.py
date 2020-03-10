@@ -60,15 +60,15 @@ model_components = {
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
     'cosine_similarity': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, add_special_tokens=False),
-        'model_class': lambda device, batcher, cluster:Model_cs(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
+        'model_class': lambda device, batcher, cluster:Model_cs(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
     'distance': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, add_special_tokens=False),
-        'model_class': lambda device, batcher, cluster:Model_d(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
+        'model_class': lambda device, batcher, cluster:Model_d(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
     'tfidf_similarity': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, tfidf_tokenizer=True),
-        'model_class': lambda device, batcher, cluster: Model_tfidf(device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
+        'model_class': lambda device, batcher, cluster: Model_tfidf(device=device, cluster=cluster),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
 }
 

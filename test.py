@@ -16,15 +16,15 @@ from argparse import ArgumentParser
 import parameters as p
 
 
-def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None, results_folder=None):
-    if checkpoint_folder is None:
+def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, device='cuda:0', batch_size=p.batch_size, subbatches=p.subbatches, num_workers=p.num_workers, email_sender=None, results_folder=None, noload=False):
+    if checkpoint_folder is None or noload:
         seed_state()
     else:
         set_random_state(read_pickle(os.path.join(checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
     val_dataset = init_dataset(val_file)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
-    model_file = os.path.join(checkpoint_folder, 'model_state.tpkl')
+    model_file = os.path.join(checkpoint_folder, 'model_state.tpkl') if not noload else None
     batcher, model, postprocessor = load_model_components(model_type, hierarchy, run_type='testing', device=device, model_file=model_file, cluster=supervised)
     val_iterator = batcher.batch_iterator(val_dataset, val_indices_iterator, subbatches=subbatches, num_workers=num_workers)
     if torch.distributed.is_initialized():
@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("model_type")
     parser.add_argument("checkpoint_folder")
+    parser.add_argument("-n", "--noload", action="store_true")
     parser.add_argument("--data_file", default=os.path.join(p.data_dir, 'val.data'))
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("-e", "--email", action="store_true")
@@ -67,7 +68,7 @@ if __name__ == '__main__':
                 if args.hierarchy is not None else\
                 os.path.join(checkpoint_folder, 'hierarchy.pkl')
 
-    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder)
+    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder, noload=args.noload)
 #    nprocs = 2
 #    main_distributed = distributed_wrapper(main, nprocs)
 #    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)

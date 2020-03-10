@@ -3,14 +3,17 @@ from torch import nn
 from torch.nn import functional as F
 from models.clinical_bert.model import EncoderSentences, ClinicalBertWrapper
 from utils import traceback_attention as ta, entropy, set_dropout, set_require_grad, get_code_counts
+from models.clusterer.model import Clusterer
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device='cpu'):
+    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device='cpu', cluster=False):
         super(Model, self).__init__()
         self.num_codes = num_codes
         self.clinical_bert_sentences = EncoderSentences(ClinicalBertWrapper, pool_type="mean", truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device)
         self.device = device
+        self.cluster = cluster
+        self.clusterer = Clusterer() if cluster else None
 
     def correct_devices(self):
         self.clinical_bert_sentences.correct_devices()
@@ -37,15 +40,20 @@ class Model(nn.Module):
             .expand(b, nq, ns, nt)
         attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
         traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
+        if self.cluster:
+            clustering = self.clusterer(article_sentences, article_sentences_lengths, attention, num_codes)
+        else:
+            clustering = None
         return_dict = dict(
             num_codes=num_codes,
             attention=attention,
             traceback_attention=traceback_attention,
-            article_sentences_lengths=article_sentences_lengths)
+            article_sentences_lengths=article_sentences_lengths,
+            clustering=clustering)
         return return_dict
 
 
-def statistics_func(total_num_codes, num_codes, attention, traceback_attention, article_sentences_lengths, codes, labels=None):
+def statistics_func(total_num_codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, codes, labels=None):
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(codes.size(1), device=codes.device) < num_codes.unsqueeze(1))
     return {'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
