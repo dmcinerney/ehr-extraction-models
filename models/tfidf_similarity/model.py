@@ -7,6 +7,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.device = device
         self.cluster = cluster
+        self.clusterer = Clusterer() if cluster else None
 
     def correct_devices(self):
         pass
@@ -23,5 +24,6 @@ class Model(nn.Module):
             num_codes=num_codes,
             attention=attention,
             traceback_attention=traceback_attention,
-            article_sentences_lengths=article_sentences_lengths)
+            article_sentences_lengths=article_sentences_lengths,
+            clustering=clustering)
         return return_dict

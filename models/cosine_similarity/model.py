@@ -54,6 +54,7 @@ class Model(nn.Module):
 
 
 def statistics_func(total_num_codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, codes, labels=None):
+    #import pdb; pdb.set_trace()
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(codes.size(1), device=codes.device) < num_codes.unsqueeze(1))
     return {'attention_entropy':entropy(attention.view(b, nq, ns*nt))[code_mask].mean()*b,
