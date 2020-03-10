@@ -42,6 +42,8 @@ def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_che
             val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
             val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
+        if not os.path.exists(optimizer_file):
+            optimizer_file = None
     batcher, model, postprocessor, optimizer = load_model_components(model_type, hierarchy, device=device, model_file=model_file,
                                                                      optimizer_file=optimizer_file, counts_file=counts_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=subbatches, num_workers=num_workers)

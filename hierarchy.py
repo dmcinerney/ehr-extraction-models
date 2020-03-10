@@ -40,6 +40,10 @@ class Hierarchy:
         self.parents = parents
         self.descriptions = descriptions
 
+
+    def get_nodes(self):
+        return [self.start] + list(self.descriptions.keys())
+
     def ancestors(self, nodes, stop_nodes=set()):
         node_stack = copy.deepcopy(nodes)
         new_nodes = set()
