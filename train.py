@@ -99,6 +99,7 @@ if __name__ == '__main__':
             copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
         if os.path.exists(used_targets_file):
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
+
     main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
          save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
          device=args.device, email_every=email_every, email_sender=email_sender)

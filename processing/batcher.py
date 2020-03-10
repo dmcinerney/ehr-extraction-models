@@ -15,7 +15,9 @@ class Batcher(StandardBatcher):
     # NOTE: ancestors is done in preprocessing sometimes
     def __init__(self, hierarchy, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
         self.hierarchy = hierarchy
-        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.get_nodes()))}
+        # TODO: delete first line when no more old models need to be trained further, newer models use second line
+        #self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.get_nodes()))}
+        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
         self.tfidf_tokenizer = tfidf_tokenizer
         if tfidf_tokenizer:
             self.tokenizer = TfidfTokenizerWrapper()

@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     hierarchy = Hierarchy.from_dict(read_pickle(args.hierarchy))\
                 if args.hierarchy is not None else\
-                os.path.join(checkpoint_folder, 'hierarchy.pkl')
+                Hierarchy.from_dict(read_pickle(os.path.join(args.checkpoint_folder, 'hierarchy.pkl')))
 
     main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder)
 #    nprocs = 2

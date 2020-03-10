@@ -7,7 +7,7 @@ data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_a
 
 # training params
 batch_size = 8
-epochs = 2
+epochs = 3
 limit_rows_train = 10000
 limit_rows_val = 1000
 subbatches = 4
@@ -18,7 +18,7 @@ val_every = 10
 email_every = 30
 
 #  model params
-sentences_per_checkpoint = 13
+sentences_per_checkpoint = 10
 
 # email params
 smtp_server = 'smtp.gmail.com'
