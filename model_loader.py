@@ -78,7 +78,7 @@ def load_model_components(model_name, hierarchy, run_type='training', device='cp
     batcher = model_components[model_name]['batcher_class'](hierarchy, counts, run_type)
     model = model_components[model_name]['model_class'](device, batcher, cluster)
     if model_file is not None:
-        model.load_state_dict(torch.load(model_file, map_location='cpu'))
+        model.load_state_dict(torch.load(model_file, map_location='cpu'), strict=False) # TODO: take out strict=False
     model.correct_devices()
     postprocessor = model_components[model_name]['postprocessor'](batcher, run_type)
     if run_type == 'training':
