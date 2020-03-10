@@ -1,5 +1,4 @@
 #!/bin/bash
-E=false
 D="cuda:0"
 PARAMS=()
 while (( "$#" )); do
