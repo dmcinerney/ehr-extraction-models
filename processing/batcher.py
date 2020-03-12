@@ -175,7 +175,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = (get_description_string(t,d) for t,d in zip(targets,hierarchy.get_descriptions(targets)))
+                descriptions = (get_description_string(t, hierarchy) for t in targets)
             else:
                 descriptions = raw_datapoint['queries']
                 # if targets were not given, you still need num_codes
@@ -254,9 +254,10 @@ class Instance(StandardInstance):
             keep_in_batch_dict['annotations'] = self.raw_datapoint['annotations']
         return keep_in_batch_dict
 
-def get_description_string(t, d):
+def get_description_string(t, hierarchy):
+    d = hierarchy.get_descriptions([t])[0]
     return d if d is not None and len(d) > 0 else t
 
 def get_description_linearization(target, hierarchy):
     targets = hierarchy.path(target)
-    return ' . '.join(get_description_string(t,d) for t,d in zip(targets,hierarchy.get_descriptions(targets)))
+    return ' [SEP] '.join(get_description_string(t, hierarchy) for t in targets)
