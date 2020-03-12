@@ -68,7 +68,12 @@ if __name__ == '__main__':
                 if args.hierarchy is not None else\
                 Hierarchy.from_dict(read_pickle(os.path.join(args.checkpoint_folder, 'hierarchy.pkl')))
 
-    main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder, noload=args.noload)
-#    nprocs = 2
-#    main_distributed = distributed_wrapper(main, nprocs)
-#    main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)
+    try:
+        main(args.model_type, args.data_file, args.checkpoint_folder, hierarchy, supervised=args.supervised, device=args.device, email_sender=email_sender, results_folder=args.results_folder, noload=args.noload)
+#        nprocs = 2
+#        main_distributed = distributed_wrapper(main, nprocs)
+#        main_distributed(args.model_type, val_file, args.checkpoint_folder, device=args.device)
+    except Exception as e:
+        if email_sender is not None:
+            email_sender("Got an exception:\n%s" % e)
+        raise e

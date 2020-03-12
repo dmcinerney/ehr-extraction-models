@@ -60,11 +60,7 @@ def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_che
     tracker.needs_graph = False
     trainer = Trainer(model, postprocessor, optimizer, batch_iterator, val_iterator=val_iterator, val_every=val_every, tracker=tracker)
     with torch.autograd.set_detect_anomaly(False):
-        try:
-            trainer.train()
-        except Exception as e:
-            email_sender("Got an exception:\n%s" % e)
-            raise e
+        trainer.train()
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -100,11 +96,16 @@ if __name__ == '__main__':
         if os.path.exists(used_targets_file):
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
 
-    main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
-         save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-         device=args.device, email_every=email_every, email_sender=email_sender)
-#    nprocs = 2
-#    main_distributed = distributed_wrapper(main, nprocs)
-#    main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,
-#         save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-#         device=args.device, email_every=email_every, email_sender=email_sender)
+    try:
+        main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
+             save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
+             device=args.device, email_every=email_every, email_sender=email_sender)
+#        nprocs = 2
+#        main_distributed = distributed_wrapper(main, nprocs)
+#        main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,
+#             save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
+#             device=args.device, email_every=email_every, email_sender=email_sender)
+    except Exception as e:
+        if email_sender is not None:
+            email_sender("Got an exception:\n%s" % e)
+        raise e
