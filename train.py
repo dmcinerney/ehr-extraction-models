@@ -42,6 +42,8 @@ def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_che
             val_indices_iterator = read_pickle(os.path.join(load_checkpoint_folder, 'val_indices_iterator.pkl'))
             val_indices_iterator.set_stop(iterations=len(indices_iterator))
         model_file, optimizer_file = os.path.join(load_checkpoint_folder, 'model_state.tpkl'), os.path.join(load_checkpoint_folder, 'optimizer_state.tpkl')
+        if not os.path.exists(optimizer_file):
+            optimizer_file = None
     batcher, model, postprocessor, optimizer = load_model_components(model_type, hierarchy, device=device, model_file=model_file,
                                                                      optimizer_file=optimizer_file, counts_file=counts_file)
     batch_iterator = batcher.batch_iterator(train_dataset, indices_iterator, subbatches=subbatches, num_workers=num_workers)
@@ -58,11 +60,7 @@ def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_che
     tracker.needs_graph = False
     trainer = Trainer(model, postprocessor, optimizer, batch_iterator, val_iterator=val_iterator, val_every=val_every, tracker=tracker)
     with torch.autograd.set_detect_anomaly(False):
-        try:
-            trainer.train()
-        except Exception as e:
-            email_sender("Got an exception:\n%s" % e)
-            raise e
+        trainer.train()
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -97,11 +95,17 @@ if __name__ == '__main__':
             copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
         if os.path.exists(used_targets_file):
             copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
-    main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
-         save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-         device=args.device, email_every=email_every, email_sender=email_sender)
-#    nprocs = 2
-#    main_distributed = distributed_wrapper(main, nprocs)
-#    main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,
-#         save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-#         device=args.device, email_every=email_every, email_sender=email_sender)
+
+    try:
+        main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
+             save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
+             device=args.device, email_every=email_every, email_sender=email_sender)
+#        nprocs = 2
+#        main_distributed = distributed_wrapper(main, nprocs)
+#        main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,
+#             save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
+#             device=args.device, email_every=email_every, email_sender=email_sender)
+    except Exception as e:
+        if email_sender is not None:
+            email_sender("Got an exception:\n%s" % e)
+        raise e

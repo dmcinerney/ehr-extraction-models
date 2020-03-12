@@ -6,7 +6,7 @@ from models.code_supervision.postprocessor import OutputBatch as OB, OutputBatch
 from models.code_supervision_individual_sentence.model import Model as Model_is
 from models.code_supervision_individual_sentence.postprocessor import OutputBatch as OB_is, OutputBatchTest as OBT_is, OutputBatchApplications as OBA_is
 from models.cosine_similarity.model import Model as Model_cs
-from models.cosine_similarity.postprocessor import OutputBatchApplications as OBA_cs
+from models.cosine_similarity.postprocessor import OutputBatchTest as OBT_cs, OutputBatchApplications as OBA_cs
 from models.distance.model import Model as Model_d
 from models.tfidf_similarity.model import Model as Model_tfidf
 from pytt.utils import read_pickle
@@ -60,16 +60,16 @@ model_components = {
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
     'cosine_similarity': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, add_special_tokens=False),
-        'model_class': lambda device, batcher, cluster:Model_cs(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
+        'model_class': lambda device, batcher, cluster:Model_cs(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster),
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBT_cs if run_type == 'testing' else OBA_cs)},
     'distance': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, add_special_tokens=False),
-        'model_class': lambda device, batcher, cluster:Model_d(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
+        'model_class': lambda device, batcher, cluster:Model_d(sentences_per_checkpoint=p.sentences_per_checkpoint, num_codes=len(batcher.code_idxs), device=device, cluster=cluster),
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBT_cs if run_type == 'testing' else OBA_cs)},
     'tfidf_similarity': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, code_description=True, tfidf_tokenizer=True),
-        'model_class': lambda device, batcher, cluster: Model_tfidf(device=device, cluster=cluster, code_embedding_types=batcher.get_code_embedding_types()),
-        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBA_cs)},
+        'model_class': lambda device, batcher, cluster: Model_tfidf(device=device, cluster=cluster),
+        'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, OBT_cs if run_type == 'testing' else OBA_cs)},
 }
 
 
@@ -78,7 +78,7 @@ def load_model_components(model_name, hierarchy, run_type='training', device='cp
     batcher = model_components[model_name]['batcher_class'](hierarchy, counts, run_type)
     model = model_components[model_name]['model_class'](device, batcher, cluster)
     if model_file is not None:
-        model.load_state_dict(torch.load(model_file, map_location='cpu'))
+        model.load_state_dict(torch.load(model_file, map_location='cpu'), strict=False) # TODO: take out strict=False
     model.correct_devices()
     postprocessor = model_components[model_name]['postprocessor'](batcher, run_type)
     if run_type == 'training':

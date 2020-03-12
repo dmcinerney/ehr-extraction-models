@@ -18,9 +18,15 @@ class Model(nn.Module):
             self.freeze_bert()
         else:
             self.unfreeze_bert(dropout=dropout)
+        self.code_embedding_types = code_embedding_types
         num_code_embedding_types = len(code_embedding_types)
+        #self.code_embeddings = nn.Embedding(num_codes, outdim)\
+        #                       if num_codes > 0 and 'codes' in code_embedding_types else None
+        #################
+        # TODO: take this out later and uncomment previous two lines! only added to satisfy optimizer
         self.code_embeddings = nn.Embedding(num_codes, outdim)\
-                               if num_codes > 0 and 'codes' in code_embedding_types else None
+                               if num_codes > 0 else None
+        #################
         self.linearized_code_transformer = EncoderSentences(lambda : LinearizedCodesTransformer(num_linearization_embeddings), embedding_dim=outdim, truncate_tokens=50,
                                                             truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device2)\
                                            if num_linearization_embeddings > 0 and 'linearized_codes' in code_embedding_types else None
@@ -42,8 +48,13 @@ class Model(nn.Module):
 
     def correct_devices(self):
         self.clinical_bert_sentences.correct_devices()
-        if self.code_embeddings is not None:
-            self.code_embeddings.to(self.device2)
+        #if self.code_embeddings is not None:
+        #    self.code_embeddings.to(self.device2)
+        #################
+        # TODO: take this out later and uncomment previous two lines! only added to satisfy optimizer
+        if self.code_embeddings is not None and 'codes' in self.code_embedding_types:
+             self.code_embeddings.to(self.device2)
+        #################
         self.attention.to(self.device2)
         self.linear.to(self.device2)
         if self.linear2 is not None:

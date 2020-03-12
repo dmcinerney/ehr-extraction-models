@@ -15,7 +15,9 @@ class Batcher(StandardBatcher):
     # NOTE: ancestors is done in preprocessing sometimes
     def __init__(self, hierarchy, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
         self.hierarchy = hierarchy
-        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
+        # TODO: delete first line when no more old models need to be trained further, newer models use second line
+        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.get_nodes()))}
+        #self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
         self.tfidf_tokenizer = tfidf_tokenizer
         if tfidf_tokenizer:
             self.tokenizer = TfidfTokenizerWrapper()
@@ -173,7 +175,7 @@ class Instance(StandardInstance):
             # get description
             # doesn't need targets as long as it has queries
             if 'targets' in raw_datapoint.keys():
-                descriptions = (d if d is not None else t for t,d in zip(targets,hierarchy.get_descriptions(targets)))
+                descriptions = (get_description_string(t, hierarchy) for t in targets)
             else:
                 descriptions = raw_datapoint['queries']
                 # if targets were not given, you still need num_codes
@@ -252,6 +254,10 @@ class Instance(StandardInstance):
             keep_in_batch_dict['annotations'] = self.raw_datapoint['annotations']
         return keep_in_batch_dict
 
+def get_description_string(t, hierarchy):
+    d = hierarchy.get_descriptions([t])[0]
+    return d if d is not None and len(d) > 0 else t
+
 def get_description_linearization(target, hierarchy):
     targets = hierarchy.path(target)
-    return ' . '.join(d if d is not None else t for t,d in zip(targets,hierarchy.get_descriptions(targets)))
+    return ' [SEP] '.join(get_description_string(t, hierarchy) for t in targets)

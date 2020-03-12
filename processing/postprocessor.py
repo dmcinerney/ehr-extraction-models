@@ -37,7 +37,9 @@ class Postprocessor(StandardPostprocessor):
         b, nq, ns, nt = outputs['attention'].shape
         attention_entropy = entropy(outputs['attention'].view(b, nq, ns*nt))
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
-        columns = ['code_name', 'code_idx', 'attention', 'traceback_attention', 'label', 'score', 'depth', 'num_report_sentences', 'patient_id', 'timepoint_id', 'reference_sentence_rankings']
+        columns = ['code_name', 'code_idx', 'attention_entropy', 'traceback_attention_entropy', 'label', 'score', 'depth',
+                   'num_report_sentences', 'patient_id', 'timepoint_id',
+                   'reference_sentence_indices', 'reference_sentence_rankings', 'reference_sentence_attention']
         rows = []
         for b in range(len(batch)):
             patient_id = int(batch.instances[b]['original_reports'].patient_id.iloc[0])
@@ -48,10 +50,10 @@ class Postprocessor(StandardPostprocessor):
             for s in range(outputs['num_codes'][b]):
                 code = outputs['codes'][b, s].item()
                 codename = self.code_names[code]
-                attention = attention_entropy[b, s].item()
-                traceback_attention = traceback_attention_entropy[b, s].item()
+                attn_ent = attention_entropy[b, s].item()
+                traceback_attn_ent = traceback_attention_entropy[b, s].item()
                 label = outputs['labels'][b, s].item()
-                score = outputs['scores'][b, s].item()
+                score = outputs['scores'][b, s].item() if 'scores' in outputs.keys() else None
                 depth = self.hierarchy.depth(codename)
                 num_report_sentences = (outputs['article_sentences_lengths'][b] > 0).sum()
                 if supervised:
@@ -60,30 +62,36 @@ class Postprocessor(StandardPostprocessor):
                     id = len(os.listdir(self.system_dir))
                     with open(os.path.join(self.system_dir, 'summary_%i_system.txt' % id), 'w') as f:
                         f.write(summary)
-                    reference_sentences_set = set([])
+                    reference_sentence_indices_set = set([])
                     for annotator,v in annotations.items():
-                        reference_sentences = [' '.join(tokenized_sentences[int(i)]) for i in v['past-reports']['tag_sentences'][codename]]
-                        reference_sentences_set.update(reference_sentences)
-                        reference = '\n'.join(reference_sentences)
+                        reference_sentence_indices = [int(i) for i in v['past-reports']['tag_sentences'][codename]]
+                        reference_sentence_indices_set.update(reference_sentence_indices)
+                        reference = '\n'.join([' '.join(tokenized_sentences[i]) for i in reference_sentence_indices])
                         with open(os.path.join(self.reference_dir, 'summary_%i_%s.txt' % (id, annotator)), 'w') as f:
                             f.write(reference)
-                    sentence_to_ranking = {sentence:i for i,sentence in enumerate(sentences)}
-                    reference_sentence_rankings = [sentence_to_ranking[s] for s in reference_sentences_set]
+                    sentence_to_ranking = {sentence_idx:i for i in range(len(sentences)) for sentence_idx in outputs['clustering'][b][s][i]}
+                    reference_sentence_indices = sorted(list(reference_sentence_indices_set))
+                    reference_sentence_rankings = [sentence_to_ranking[i] for i in sorted(list(reference_sentence_indices_set))]
+                    reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
                 else:
+                    reference_sentence_indices = None
                     reference_sentence_rankings = None
+                    reference_sentence_attention = None
                 # NOTE: cannot include summaries here because this file might be emailed and summaries contain phi!
                 rows.append([
                     codename,
                     code,
-                    attention,
-                    traceback_attention,
+                    attn_ent,
+                    traceback_attn_ent,
                     label,
                     score,
                     depth,
                     num_report_sentences,
                     patient_id,
                     last_report_id,
+                    reference_sentence_indices,
                     reference_sentence_rankings,
+                    reference_sentence_attention,
                 ])
         df = pd.DataFrame(rows, columns=columns)
         file = os.path.join(self.dir, 'summary_stats.csv')
