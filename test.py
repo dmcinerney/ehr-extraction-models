@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--email", action="store_true")
     parser.add_argument("--sender_password", default=None)
     parser.add_argument("-s", "--supervised", action="store_true")
-    parser.add_argument("--supervised_data_dir" default=None)
+    parser.add_argument("--supervised_data_dir", default=None)
     parser.add_argument("--results_folder", default=None)
     args = parser.parse_args()
 

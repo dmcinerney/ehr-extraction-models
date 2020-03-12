@@ -124,6 +124,13 @@ if __name__ == '__main__':
 
     hierarchy = Hierarchy.from_graph(read_pickle(args.code_graph_file))
 
+    if args.save_checkpoint_folder is not None:
+        write_pickle(hierarchy.to_dict(), os.path.join(args.save_checkpoint_folder, 'hierarchy.pkl'))
+        if os.path.exists(counts_file):
+            copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
+        if os.path.exists(used_targets_file):
+            copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
+
     if args.expensive_val_every is not None:
         supervised_val_file = os.path.join(args.supervised_data_dir, 'supervised.data')
         hierarchy_file = os.path.join(args.supervised_data_dir, 'hierarchy.pkl')
@@ -132,13 +139,6 @@ if __name__ == '__main__':
     else:
         supervised_val_file = None
         supervised_val_hierarchy = None
-
-    if args.save_checkpoint_folder is not None:
-        write_pickle(hierarchy.to_dict(), os.path.join(args.save_checkpoint_folder, 'hierarchy.pkl'))
-        if os.path.exists(counts_file):
-            copyfile(counts_file, os.path.join(args.save_checkpoint_folder, 'counts.pkl'))
-        if os.path.exists(used_targets_file):
-            copyfile(used_targets_file, os.path.join(args.save_checkpoint_folder, 'used_targets.txt'))
 
     try:
         main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,

@@ -44,18 +44,18 @@ SA=( "${BASE_DATASET_PATH}/val_supervised_custom" "${BASE_DATASET_PATH}/val_supe
 #Train supervised args
 TSA=( "--supervised_data_dir" "--results_folder" )
 
-mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
+#mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
 MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[0]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_only_description_unfrozen/supervised_results" )
-python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
+#python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
 #python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
 #python test.py code_supervision_only_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" -s --data_file "${SA[0]}" --results_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen/supervised_results"
 #python test.py code_supervision_only_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}"
-#mkdir "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
+mkdir "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
 MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[0]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen/supervised_results" )
-#python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
+python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
 #python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
 #python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" -s --data_file "${SA[0]}" --results_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen/supervised_results"
-#python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}"
+python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}"
 #mkdir "${CHECKPOINTS}/code_supervision_unfrozen"
 MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[1]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_unfrozen/supervised_results" )
 #python train.py code_supervision_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
