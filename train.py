@@ -1,12 +1,14 @@
 import os
 import socket
+import subprocess
 from shutil import copyfile
 import torch
 from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
 from pytt.email import EmailSender
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.training.trainer import Trainer
-from pytt.training.tracker import Tracker
+from pytt.testing.tester import Tester
+from tracker import Tracker
 from pytt.distributed import distributed_wrapper
 from pytt.logger import logger
 from processing.dataset import init_dataset
@@ -18,10 +20,38 @@ from shutil import copyfile
 from argparse import ArgumentParser
 import parameters as p
 
+class SupervisedTestingFunc:
+    def __init__(self, val_file, training_model, model_type, hierarchy, device, batch_size, subbatches, num_workers, results_folder, email_sender):
+        self.val_dataset = init_dataset(val_file)
+        self.training_model = training_model
+        self.batcher, self.model, self.postprocessor = load_model_components(model_type, hierarchy, run_type='testing', device=device, cluster=True)
+        subprocess.run(["mkdir", results_folder])
+        self.batch_size, self.subbatches, self.num_workers = batch_size, subbatches, num_workers
+        self.results_folder = results_folder
+        self.email_sender = email_sender
+
+    def __call__(self, iteration_info):
+        logger.log("Running Supervised Testing")
+        self.model.load_state_dict(self.training_model.state_dict())
+        results_folder = os.path.join(self.results_folder, 'results_%s' % iteration_info.iterator_info.batches_seen)
+        os.mkdir(results_folder)
+        self.postprocessor.add_output_dir(results_folder)
+        val_indices_iterator = init_indices_iterator(len(self.val_dataset), self.batch_size)
+        val_iterator = self.batcher.batch_iterator(self.val_dataset, val_indices_iterator, subbatches=self.subbatches, num_workers=self.num_workers)
+        tester = Tester(self.model, self.postprocessor, val_iterator)
+        total_output_batch = tester.test()
+        with open(os.path.join(results_folder, 'scores.txt'), 'w') as f:
+            f.write(str(total_output_batch))
+        if self.email_sender is not None:
+            attachments = self.postprocessor.get_summary_attachment_generator()
+            self.email_sender("Testing is done!\n\n"+str(total_output_batch), attachments=attachments)
+        logger.log("Testing is done!")
+
 def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_checkpoint_folder=None, load_checkpoint_folder=None, device='cuda:0',
          batch_size=p.batch_size, epochs=p.epochs, limit_rows_train=p.limit_rows_train, limit_rows_val=p.limit_rows_val, subbatches=p.subbatches,
          num_workers=p.num_workers, checkpoint_every=p.checkpoint_every, copy_checkpoint_every=p.copy_checkpoint_every, val_every=p.val_every,
-         email_every=None, email_sender=None):
+         email_every=None, email_sender=None, expensive_val_every=None, supervised_val_file=None, supervised_val_hierarchy=None,
+         results_folder=None):
     if load_checkpoint_folder is None:
         seed_state()
     else:
@@ -53,8 +83,10 @@ def main(model_type, train_file, hierarchy, counts_file, val_file=None, save_che
         val_iterator = None
     if torch.distributed.is_initialized():
         model = LDDP(model, torch.distributed.get_world_size())
+    expensive_val_func = SupervisedTestingFunc(supervised_val_file, model, model_type, supervised_val_hierarchy, device, batch_size, subbatches, num_workers, results_folder, email_sender)\
+                         if expensive_val_every is not None else None
     tracker = Tracker(checkpoint_folder=save_checkpoint_folder, checkpoint_every=checkpoint_every, copy_checkpoint_every=copy_checkpoint_every,
-                      email_every=email_every, email_sender=email_sender)
+                      email_every=email_every, email_sender=email_sender, expensive_val_every=expensive_val_every, expensive_val_func=expensive_val_func)
 #    if load_checkpoint_folder is not None:
 #        tracker.needs_graph = False
     tracker.needs_graph = False
@@ -72,6 +104,9 @@ if __name__ == '__main__':
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("-e", "--email", action="store_true")
     parser.add_argument("--sender_password", default=None)
+    parser.add_argument("--expensive_val_every", default=p.expensive_val_every)
+    parser.add_argument("--supervised_data_dir", default=None)
+    parser.add_argument("--results_folder", default=None)
     args = parser.parse_args()
 
     if args.email:
@@ -89,6 +124,15 @@ if __name__ == '__main__':
 
     hierarchy = Hierarchy.from_graph(read_pickle(args.code_graph_file))
 
+    if args.expensive_val_every is not None:
+        supervised_val_file = os.path.join(args.supervised_data_dir, 'supervised.data')
+        hierarchy_file = os.path.join(args.supervised_data_dir, 'hierarchy.pkl')
+        supervised_val_hierarchy = Hierarchy.from_dict(read_pickle(hierarchy_file))\
+                                   if os.path.exists(hierarchy_file) else hierarchy
+    else:
+        supervised_val_file = None
+        supervised_val_hierarchy = None
+
     if args.save_checkpoint_folder is not None:
         write_pickle(hierarchy.to_dict(), os.path.join(args.save_checkpoint_folder, 'hierarchy.pkl'))
         if os.path.exists(counts_file):
@@ -99,7 +143,9 @@ if __name__ == '__main__':
     try:
         main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
              save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-             device=args.device, email_every=email_every, email_sender=email_sender)
+             device=args.device, email_every=email_every, email_sender=email_sender, expensive_val_every=int(args.expensive_val_every),
+             supervised_val_file=supervised_val_file, supervised_val_hierarchy=supervised_val_hierarchy,
+             results_folder=args.results_folder)
 #        nprocs = 2
 #        main_distributed = distributed_wrapper(main, nprocs)
 #        main_distributed(args.model_type, train_file, args.code_graph_file, val_file=val_file,

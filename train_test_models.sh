@@ -38,18 +38,27 @@ then
     echo
     ARGS=( ${ARGS[@]} "--sender_password" "$pswd" "-e" )
 fi
-#mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
-#python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}"
-#python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
-#python test.py code_supervision_only_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" -s --data_file /home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded/val_supervised_custom/supervised.data --hierarchy /home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded/val_supervised_custom/hierarchy.pkl --results_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen/supervised_results"
+BASE_DATASET_PATH="/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded"
+#Supervised args
+SA=( "${BASE_DATASET_PATH}/val_supervised_custom" "${BASE_DATASET_PATH}/val_supervised" )
+#Train supervised args
+TSA=( "--supervised_data_dir" "--results_folder" )
+
+mkdir "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
+MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[0]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_only_description_unfrozen/supervised_results" )
+python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
+#python train.py code_supervision_only_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen"
+#python test.py code_supervision_only_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}" -s --data_file "${SA[0]}" --results_folder "${CHECKPOINTS}/code_supervision_only_description_unfrozen/supervised_results"
 #python test.py code_supervision_only_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_description_unfrozen" "${ARGS[@]}"
 #mkdir "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
-#python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}"
-#python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
-#python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" -s --data_file /home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded/val_supervised_custom/supervised.data --hierarchy /home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded/val_supervised_custom/hierarchy.pkl --results_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen/supervised_results"
+MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[0]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen/supervised_results" )
+#python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
+#python train.py code_supervision_only_linearization_description_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen"
+#python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}" -s --data_file "${SA[0]}" --results_folder "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen/supervised_results"
 #python test.py code_supervision_only_linearization_description_unfrozen  "${CHECKPOINTS}/code_supervision_only_linearization_description_unfrozen" "${ARGS[@]}"
 #mkdir "${CHECKPOINTS}/code_supervision_unfrozen"
-#python train.py code_supervision_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}"
-python train.py code_supervision_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen"
-#python test.py code_supervision_unfrozen  "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" -s --data_file /home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded/val_supervised/supervised.data --results_folder "${CHECKPOINTS}/code_supervision_unfrozen/supervised_results"
+MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS=( ${TSA[0]} ${SA[1]} ${TSA[1]} "${CHECKPOINTS}/code_supervision_unfrozen/supervised_results" )
+#python train.py code_supervision_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}"
+#python train.py code_supervision_unfrozen --save_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" "${MODEL_SPECIFIC_TRAIN_SUPERVISED_ARGS[@]}" --load_checkpoint_folder "${CHECKPOINTS}/code_supervision_unfrozen"
+#python test.py code_supervision_unfrozen  "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}" -s --data_file "${SA[1]}" --results_folder "${CHECKPOINTS}/code_supervision_unfrozen/supervised_results"
 #python test.py code_supervision_unfrozen  "${CHECKPOINTS}/code_supervision_unfrozen" "${ARGS[@]}"
