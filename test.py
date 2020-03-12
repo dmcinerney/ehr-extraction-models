@@ -22,7 +22,7 @@ def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, d
     else:
         set_random_state(read_pickle(os.path.join(checkpoint_folder, 'random_state.pkl')))
     logger.set_verbosity(2)
-    val_dataset = init_dataset(val_file)
+    val_dataset = init_dataset(val_file, limit_rows=limit_rows_val)
     val_indices_iterator = init_indices_iterator(len(val_dataset), batch_size)
     model_file = os.path.join(checkpoint_folder, 'model_state.tpkl') if not noload else None
     batcher, model, postprocessor = load_model_components(model_type, hierarchy, run_type='testing', device=device, model_file=model_file, cluster=supervised)
