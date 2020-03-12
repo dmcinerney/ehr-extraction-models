@@ -55,7 +55,7 @@ class FullModelInterface(TokenizerInterface):
                 device=device)
             for k in self.models}
         self.trained_queries = {k:get_queries(os.path.join(model_dirs[k][1], 'used_targets.txt'))
-                                if model_dirs[k][1] is not None else list(self.get_descriptions().keys())
+                                if model_dirs[k][1] is not None else list(self.hierarchy.descriptions.keys())
                                 for k in self.models}
 
     def get_trained_queries(self, model):
