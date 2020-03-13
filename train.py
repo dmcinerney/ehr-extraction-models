@@ -140,10 +140,11 @@ if __name__ == '__main__':
         supervised_val_file = None
         supervised_val_hierarchy = None
 
+    expensive_val_every = int(args.expensive_val_every) if args.expensive_val_every is not None else None
     try:
         main(args.model_type, train_file, hierarchy, counts_file, val_file=val_file,
              save_checkpoint_folder=args.save_checkpoint_folder, load_checkpoint_folder=args.load_checkpoint_folder,
-             device=args.device, email_every=email_every, email_sender=email_sender, expensive_val_every=int(args.expensive_val_every),
+             device=args.device, email_every=email_every, email_sender=email_sender, expensive_val_every=expensive_val_every,
              supervised_val_file=supervised_val_file, supervised_val_hierarchy=supervised_val_hierarchy,
              results_folder=args.results_folder)
 #        nprocs = 2
