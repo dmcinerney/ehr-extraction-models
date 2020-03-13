@@ -2,7 +2,7 @@ import os
 import torch
 import socket
 from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
-from pytt.email import EmailSender
+from pytt.email import EmailSender, default_onerror
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
@@ -41,8 +41,15 @@ def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, d
     #total_output_batch.write_results()
     #write_pickle(postprocessor.summary_stats, os.path.join(checkpoint_folder, 'summary_stats.pkl'))
     if email_sender is not None:
+        def onerror(e):
+            if check_attachment_error(e):
+                logger.log("Trying to send without attachment")
+                self.email_sender.send_email(str(total_output_batch))
+            else:
+                default_onerror(e)
         attachments = postprocessor.get_summary_attachment_generator()
-        email_sender.send_email("Testing is done!\n\n"+str(total_output_batch), attachments=attachments)
+        email_sender.send_email("Testing is done!\n\n"+str(total_output_batch), attachments=attachments, onerror=onerror)
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()
