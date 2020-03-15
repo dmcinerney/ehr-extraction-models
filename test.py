@@ -2,7 +2,7 @@ import os
 import torch
 import socket
 from pytt.utils import seed_state, set_random_state, read_pickle, write_pickle
-from pytt.email import EmailSender, default_onerror
+from pytt.email import EmailSender, default_onerror, check_attachment_error
 from pytt.batching.indices_iterator import init_indices_iterator
 from pytt.distributed import distributed_wrapper
 from pytt.testing.tester import Tester
