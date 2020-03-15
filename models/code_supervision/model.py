@@ -9,7 +9,7 @@ from utils import traceback_attention as ta, entropy, set_dropout, set_require_g
 
 
 class Model(nn.Module):
-    def __init__(self, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, code_embedding_type_params=set([]), dropout=.15, cluster=False):
+    def __init__(self, outdim=64, sentences_per_checkpoint=10, device1='cpu', device2='cpu', freeze_bert=True, code_embedding_type_params=set([]), concatenate_code_embedding=False, dropout=.15, cluster=False):
         super(Model, self).__init__()
         self.clinical_bert_sentences = EncoderSentences(ClinicalBertWrapper, embedding_dim=outdim, truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device1)
         if freeze_bert:
@@ -24,8 +24,10 @@ class Model(nn.Module):
                                                             truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device2)\
                                            if 'linearized_codes' in code_embedding_type_params.keys() else None
         self.attention = nn.MultiheadAttention(outdim, 1)
+        self.concatenate_code_embedding = concatenate_code_embedding
         self.linear = nn.Linear(outdim, 1)
         self.linear2 = nn.Linear(outdim*num_code_embedding_types, outdim) if num_code_embedding_types > 1 else None
+        self.linear3 = nn.Linear(2*outdim, outdim) if concatenate_code_embedding else None
         self.device1 = device1
         self.device2 = device2
         self.cluster = cluster
@@ -50,6 +52,8 @@ class Model(nn.Module):
         self.codes_per_checkpoint = 1000
         if self.cluster:
             self.clusterer.to(self.device2)
+        if self.concatenate_code_embedding:
+            self.linear3.to(self.device2)
 
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None, linearized_descriptions=None, linearized_descriptions_lengths=None):
         nq = num_codes.max()
@@ -161,6 +165,9 @@ class Model(nn.Module):
             .expand(b, nq, ns, nt)
         attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
         traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
+        if self.concatenate_code_embedding:
+            encoding = torch.cat([encoding, code_embeddings.transpose(0, 1)], 2)
+            encoding = torch.relu(self.linear3(encoding))
         scores = self.linear(encoding)
         return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
 
