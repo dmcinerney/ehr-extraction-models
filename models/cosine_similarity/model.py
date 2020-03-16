@@ -7,9 +7,8 @@ from models.clusterer.model import Clusterer
 
 
 class Model(nn.Module):
-    def __init__(self, num_codes, outdim=64, sentences_per_checkpoint=10, device='cpu', cluster=False):
+    def __init__(self, outdim=64, sentences_per_checkpoint=10, device='cpu', cluster=False):
         super(Model, self).__init__()
-        self.num_codes = num_codes
         self.clinical_bert_sentences = EncoderSentences(ClinicalBertWrapper, pool_type="mean", truncate_tokens=50, truncate_sentences=1000, sentences_per_checkpoint=sentences_per_checkpoint, device=device)
         self.device = device
         self.cluster = cluster

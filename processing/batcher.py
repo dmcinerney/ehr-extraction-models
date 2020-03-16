@@ -15,9 +15,7 @@ class Batcher(StandardBatcher):
     # NOTE: ancestors is done in preprocessing sometimes
     def __init__(self, hierarchy, ancestors=False, code_id=False, code_description=False, code_linearization=False, description_linearization=False, description_embedding_linearization=False, resample_neg_proportion=None, counts=None, tfidf_tokenizer=False, add_special_tokens=True):
         self.hierarchy = hierarchy
-        # TODO: delete first line when no more old models need to be trained further, newer models use second line
-        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.get_nodes()))}
-        #self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
+        self.code_idxs = {code:i for i,code in enumerate(sorted(hierarchy.descriptions.keys()))}
         self.tfidf_tokenizer = tfidf_tokenizer
         if tfidf_tokenizer:
             self.tokenizer = TfidfTokenizerWrapper()
@@ -41,19 +39,19 @@ class Batcher(StandardBatcher):
         else:
             self.counts = None
 
-    def get_code_embedding_types(self):
-        code_embedding_types = set([])
+    def get_code_embedding_type_params(self):
+        code_embedding_type_params = {}
         if self.code_id:
-            code_embedding_types.add('codes')
+            code_embedding_type_params['codes'] = (len(self.code_idxs),)
         if self.code_description:
-            code_embedding_types.add('descriptions')
+            code_embedding_type_params['descriptions'] = tuple()
         if self.code_linearization:
-            code_embedding_types.add('linearized_codes')
+            code_embedding_type_params['linearized_codes'] = (len(self.code_idxs),)
         if self.description_linearization:
-            code_embedding_types.add('linearized_descriptions')
+            code_embedding_type_params['linearized_descriptions'] = tuple()
         if self.description_embedding_linearization:
-            code_embedding_types.add('linearized_description_embeddings')
-        return code_embedding_types
+            code_embedding_type_params['linearized_description_embeddings'] = tuple()
+        return code_embedding_type_params
 
     def process_datapoint(self, raw_datapoint):
         return Instance(raw_datapoint,

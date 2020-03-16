@@ -38,7 +38,7 @@ class Postprocessor(StandardPostprocessor):
         attention_entropy = entropy(outputs['attention'].view(b, nq, ns*nt))
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
         columns = ['code_name', 'code_idx', 'attention_entropy', 'traceback_attention_entropy', 'label', 'score', 'depth',
-                   'num_report_sentences', 'patient_id', 'timepoint_id',
+                   'num_report_sentences', 'num_report_clusters', 'patient_id', 'timepoint_id',
                    'reference_sentence_indices', 'reference_sentence_rankings', 'reference_sentence_attention']
         rows = []
         for b in range(len(batch)):
@@ -55,8 +55,9 @@ class Postprocessor(StandardPostprocessor):
                 label = outputs['labels'][b, s].item()
                 score = outputs['scores'][b, s].item() if 'scores' in outputs.keys() else None
                 depth = self.hierarchy.depth(codename)
-                num_report_sentences = (outputs['article_sentences_lengths'][b] > 0).sum()
+                num_report_sentences = (outputs['article_sentences_lengths'][b] > 0).sum().item()
                 if supervised:
+                    num_report_clusters = len(outputs['clustering'][b][s])
                     sentences = [' '.join(tokenized_sentences[cluster[0]]) for cluster in outputs['clustering'][b][s]]
                     summary = '\n'.join(sentences[:self.k])
                     id = len(os.listdir(self.system_dir))
@@ -74,6 +75,7 @@ class Postprocessor(StandardPostprocessor):
                     reference_sentence_rankings = [sentence_to_ranking[i] for i in sorted(list(reference_sentence_indices_set))]
                     reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
                 else:
+                    num_report_clusters = None
                     reference_sentence_indices = None
                     reference_sentence_rankings = None
                     reference_sentence_attention = None
@@ -87,6 +89,7 @@ class Postprocessor(StandardPostprocessor):
                     score,
                     depth,
                     num_report_sentences,
+                    num_report_clusters,
                     patient_id,
                     last_report_id,
                     reference_sentence_indices,
