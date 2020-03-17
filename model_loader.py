@@ -15,37 +15,37 @@ import parameters as p
 model_components = {
     'code_supervision': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_id=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=True),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_unfrozen': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_id=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=False, dropout=0),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_linearization': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_linearization=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=True),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_linearization_unfrozen': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_linearization=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=False, dropout=0),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_description': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_description=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=True),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=True),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_description_unfrozen': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_description=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=False, dropout=0),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_only_linearization_description_unfrozen': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, description_linearization=True),
-        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=False, dropout=0),
+        'model_class': lambda device, batcher, cluster:Model(sentences_per_checkpoint=p.sentences_per_checkpoint, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB if run_type == 'training' else (OBT if run_type == 'testing' else OBA)))},
     'code_supervision_individual_sentence': {
@@ -55,7 +55,7 @@ model_components = {
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
     'code_supervision_individual_sentence_unfrozen': {
         'batcher_class': lambda hierarchy, counts, run_type: Batcher(hierarchy, resample_neg_proportion=.01 if run_type == 'training' else None, counts=counts, code_id=True),
-        'model_class': lambda device, batcher, cluster:Model_is(sentences_per_checkpoint=17, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), freeze_bert=False, dropout=0),
+        'model_class': lambda device, batcher, cluster:Model_is(sentences_per_checkpoint=17, device1=device, device2='cpu', cluster=cluster, code_embedding_type_params=batcher.get_code_embedding_type_params(), concatenate_code_embedding=p.concatenate_code_embedding, freeze_bert=False, dropout=0),
         'optimizer_class': lambda parameters: torch.optim.Adam(parameters, lr=.00001),
         'postprocessor': lambda batcher, run_type: Postprocessor(batcher.hierarchy, batcher.code_idxs, (OB_is if run_type == 'training' else (OBT_is if run_type == 'testing' else OBA_is)))},
     'cosine_similarity': {
@@ -78,7 +78,7 @@ def load_model_components(model_name, hierarchy, run_type='training', device='cp
     batcher = model_components[model_name]['batcher_class'](hierarchy, counts, run_type)
     model = model_components[model_name]['model_class'](device, batcher, cluster)
     if model_file is not None:
-        model.load_state_dict(torch.load(model_file, map_location='cpu'), strict=False) # TODO: take out strict=False
+        model.load_state_dict(torch.load(model_file, map_location='cpu'))
     model.correct_devices()
     postprocessor = model_components[model_name]['postprocessor'](batcher, run_type)
     if run_type == 'training':

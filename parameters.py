@@ -24,6 +24,7 @@ expensive_val_every = 500
 
 #  model params
 sentences_per_checkpoint = 30
+concatenate_code_embedding = True
 
 # email params
 smtp_server = 'smtp.gmail.com'
