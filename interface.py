@@ -4,15 +4,17 @@ from processing.batcher import Batcher
 from pytt.utils import read_pickle
 from utils import get_queries
 from hierarchy import Hierarchy
+import parameters as p
 
-codes_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl' # hack to create batcher (it is not actually used because batcher does not return anything code-related)
+codes_file = p.code_graph_file
+base_checkpoint_dir = '/home/dzm44/Documents/projects/ehr-extraction-models/bwh_models2'
 model_info = {
     'cosine_similarity': ('cosine_similarity', None, ['description']),
     'distance': ('distance', None, ['description']),
     'tfidf_similarity': ('tfidf_similarity', None, ['description']),
-    'code_supervision_unfrozen': ('code_supervision', '/home/jered/Documents/projects/ehr-extraction-models/bwh_models/code_supervision_unfrozen', ['tag']),
-    'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/bwh_models/code_supervision_only_description_unfrozen', ['description']),
-    'code_supervision_only_linearization_description_unfrozen': ('code_supervision_only_linearization_description_unfrozen', '/home/jered/Documents/projects/ehr-extraction-models/bwh_models/code_supervision_only_linearization_description_unfrozen', ['description_linearization']),
+    'code_supervision_unfrozen': ('code_supervision_unfrozen', os.path.join(base_checkpoint_dir, 'code_supervision_unfrozen'), ['tag']),
+    'code_supervision_only_description_unfrozen': ('code_supervision_only_description_unfrozen', os.path.join(base_checkpoint_dir, 'code_supervision_only_description_unfrozen'), ['description']),
+    'code_supervision_only_linearization_description_unfrozen': ('code_supervision_only_linearization_description_unfrozen', os.path.join(base_checkpoint_dir, 'code_supervision_only_linearization_description_unfrozen'), ['description_linearization']),
 }
 
 class TokenizerInterface:

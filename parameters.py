@@ -1,6 +1,9 @@
-pretrained_model = '/home/jered/Documents/projects/clinical-bert/clinical-bert-weights'
-code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
-data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded'
+pretrained_model = '/home/dzm44/Documents/projects/clinical-bert/clinical-bert-weights'
+code_graph_file = '/home/dzm44/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
+#pretrained_model = '/home/jered/Documents/projects/clinical-bert/clinical-bert-weights'
+#code_graph_file = '/home/jered/Documents/data/icd_codes/code_graph_radiology_expanded.pkl'
+data_dir = '/home/dzm44/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded'
+#data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded'
 #data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/mini'
 #data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 #data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/mini'
@@ -24,7 +27,7 @@ expensive_val_every = 500
 
 #  model params
 sentences_per_checkpoint = 30
-concatenate_code_embedding = False
+concatenate_code_embedding = True
 
 # email params
 smtp_server = 'smtp.gmail.com'
