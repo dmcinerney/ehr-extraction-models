@@ -12,6 +12,7 @@ class Postprocessor(StandardPostprocessor):
         self.output_batch_class = output_batch_class
         self.dir = None
         self.k = 100
+        self.counts = [0, 0]
 
     def add_output_dir(self, dir):
         self.dir = dir
@@ -74,6 +75,12 @@ class Postprocessor(StandardPostprocessor):
                     reference_sentence_indices = sorted(list(reference_sentence_indices_set))
                     reference_sentence_rankings = [sentence_to_ranking[i] for i in sorted(list(reference_sentence_indices_set))]
                     reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
+                    # next 3 lines just for testing, TODO: take this out
+                    for i,a in enumerate(reference_sentence_attention):
+                        self.counts[1] += 1
+                        if a > 0:
+                            self.counts[0] += 1
+                            print(patient_id, annotations.keys(), codename, a, reference_sentence_indices[i], tokenized_sentences[reference_sentence_indices[i]])
                 else:
                     num_report_clusters = None
                     reference_sentence_indices = None

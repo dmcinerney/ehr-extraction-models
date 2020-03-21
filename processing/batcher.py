@@ -175,7 +175,7 @@ class Instance(StandardInstance):
             if 'targets' in raw_datapoint.keys():
                 descriptions = (get_description_string(t, hierarchy) for t in targets)
             else:
-                descriptions = raw_datapoint['queries']
+                descriptions = raw_datapoint['descriptions']
                 # if targets were not given, you still need num_codes
                 self.datapoint['num_codes'] = torch.tensor(len(descriptions))
                 self.observed += ['num_codes']
@@ -203,8 +203,7 @@ class Instance(StandardInstance):
             if 'targets' in raw_datapoint.keys():
                 descriptions = [get_description_linearization(t, hierarchy) for t in targets]
             else:
-                raise NotImplementedError # interface doesn't produce valid queries for this yet
-                descriptions = raw_datapoint['queries']
+                descriptions = raw_datapoint['description_linearizations']
                 # if targets were not given, you still need num_codes
                 self.datapoint['num_codes'] = torch.tensor(len(descriptions))
                 self.observed += ['num_codes']

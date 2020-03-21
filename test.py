@@ -44,11 +44,12 @@ def main(model_type, val_file, checkpoint_folder, hierarchy, supervised=False, d
         def onerror(e):
             if check_attachment_error(e):
                 logger.log("Trying to send without attachment")
-                self.email_sender.send_email(str(total_output_batch))
+                email_sender.send_email(str(total_output_batch))
             else:
                 default_onerror(e)
         attachments = postprocessor.get_summary_attachment_generator()
         email_sender.send_email("Testing is done!\n\n"+str(total_output_batch), attachments=attachments, onerror=onerror)
+    print(postprocessor.counts)
 
 
 if __name__ == '__main__':
