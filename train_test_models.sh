@@ -38,9 +38,9 @@ then
     echo
     ARGS=( ${ARGS[@]} "--sender_password" "$pswd" "-e" )
 fi
-BASE_DATASET_PATH="/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded"
+#BASE_DATASET_PATH="/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded"
 #BASE_DATASET_PATH="/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded"
-#BASE_DATASET_PATH="/home/dzm44/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded"
+BASE_DATASET_PATH="/home/dzm44/Documents/data/Dataset_10-11-2019/preprocessed/reports_and_codes_expanded"
 #Supervised args
 SA=( "${BASE_DATASET_PATH}/val_supervised_custom" "${BASE_DATASET_PATH}/val_supervised" )
 #Train supervised args

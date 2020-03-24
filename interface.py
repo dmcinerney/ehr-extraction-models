@@ -76,10 +76,10 @@ class FullModelInterface(TokenizerInterface):
         attention = results['attention'][0,0]
         # TODO: need to adjust this to cover if attention is all zero
         min_avged = attention.sum(1, keepdim=True).min()/attention.size(1)
-        sentence_level_attention = (attention-min_avged)/(attention.sum(1, keepdim=True).max()+.0001-min_avged)
-        attention = (attention-attention.min())/(attention.max()-attention.min())
+        sentence_level_attention = (attention-min_avged)/(attention.sum(1, keepdim=True).max()-min_avged+.00001)
+        attention = (attention-attention.min())/(attention.max()-attention.min()+.00001)
         traceback_attention = results['traceback_attention'][0,0]
-        traceback_attention = (traceback_attention-traceback_attention.min())/(traceback_attention.max()-traceback_attention.min())
+        traceback_attention = (traceback_attention-traceback_attention.min())/(traceback_attention.max()-traceback_attention.min()+.00001)
         return_dict = {
             'heatmaps':{
                 'attention':[sent[:len(results['tokenized_text'][i])]
