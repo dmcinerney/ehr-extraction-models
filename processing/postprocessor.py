@@ -39,7 +39,8 @@ class Postprocessor(StandardPostprocessor):
         traceback_attention_entropy = entropy(outputs['traceback_attention'].view(b, nq, ns*nt))
         columns = ['code_name', 'code_idx', 'attention_entropy', 'traceback_attention_entropy', 'label', 'score', 'depth',
                    'num_report_sentences', 'num_report_clusters', 'patient_id', 'timepoint_id',
-                   'reference_sentence_indices', 'reference_sentence_rankings', 'reference_sentence_attention']
+#                   'reference_sentence_indices', 'reference_sentence_rankings', 'reference_sentence_attention']
+                   'reference_sentence_indices', 'reference_sentence_rankings', 'sentence_attention']
         rows = []
         for b in range(len(batch)):
             patient_id = int(batch.instances[b]['original_reports'].patient_id.iloc[0])
@@ -73,7 +74,9 @@ class Postprocessor(StandardPostprocessor):
                     sentence_to_ranking = {sentence_idx:i for i in range(len(sentences)) for sentence_idx in outputs['clustering'][b][s][i]}
                     reference_sentence_indices = sorted(list(reference_sentence_indices_set))
                     reference_sentence_rankings = [sentence_to_ranking[i] for i in sorted(list(reference_sentence_indices_set))]
-                    reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
+#                    reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
+                    import pdb; pdb.set_trace()
+                    sentence_attention = outputs['attention'][b, s].sum(1).numpy().tolist()
                 else:
                     num_report_clusters = None
                     reference_sentence_indices = None
@@ -94,7 +97,8 @@ class Postprocessor(StandardPostprocessor):
                     last_report_id,
                     reference_sentence_indices,
                     reference_sentence_rankings,
-                    reference_sentence_attention,
+#                    reference_sentence_attention,
+                    sentence_attention,
                 ])
         df = pd.DataFrame(rows, columns=columns)
         file = os.path.join(self.dir, 'summary_stats.csv')
