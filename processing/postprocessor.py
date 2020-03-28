@@ -75,8 +75,7 @@ class Postprocessor(StandardPostprocessor):
                     reference_sentence_indices = sorted(list(reference_sentence_indices_set))
                     reference_sentence_rankings = [sentence_to_ranking[i] for i in sorted(list(reference_sentence_indices_set))]
 #                    reference_sentence_attention = [outputs['attention'][b, s, i].sum().item() for i in sorted(list(reference_sentence_indices_set))]
-                    import pdb; pdb.set_trace()
-                    sentence_attention = outputs['attention'][b, s].sum(1).numpy().tolist()
+                    sentence_attention = [outputs['attention'][b, s, outputs['clustering'][b][s][i][0]].sum().item() for i in range(len(sentences))]
                 else:
                     num_report_clusters = None
                     reference_sentence_indices = None
