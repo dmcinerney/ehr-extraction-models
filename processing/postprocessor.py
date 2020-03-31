@@ -80,7 +80,8 @@ class Postprocessor(StandardPostprocessor):
                     num_report_clusters = None
                     reference_sentence_indices = None
                     reference_sentence_rankings = None
-                    reference_sentence_attention = None
+#                    reference_sentence_attention = None
+                    sentence_attention = None
                 # NOTE: cannot include summaries here because this file might be emailed and summaries contain phi!
                 rows.append([
                     codename,

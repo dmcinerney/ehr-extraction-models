@@ -8,6 +8,7 @@ data_dir = '/home/jered/Documents/data/Dataset_10-11-2019/preprocessed/reports_a
 #data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/reports_and_codes_expanded'
 #data_dir = '/home/jered/Documents/data/mimic-iii-clinical-database-1.4/preprocessed/mini'
 val_file = 'val.data'
+#val_file = 'test.data'
 
 # training params
 learning_rate_unfrozen = .00001
