@@ -159,12 +159,12 @@ class OutputBatchApplications(OutputBatch):
         return stats
 
     @classmethod
-    def test_func(cls, batch, total_num_codes, scores, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, codes=None, labels=None):
-        results = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention, 'article_sentences_lengths':article_sentences_lengths,
+    def test_func(cls, batch, total_num_codes, scores, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, codes=None, labels=None):
+        results = {'scores':scores, 'attention':attention, 'traceback_attention':traceback_attention, 'context_vec':context_vec, 'article_sentences_lengths':article_sentences_lengths,
                    'tokenized_text':batch.instances[0]['tokenized_sentences'], 'sentence_spans':batch.instances[0]['sentence_spans'], 'original_reports':batch.instances[0]['original_reports'],
                    'clustering':clustering}
         if labels is not None:
-            stats = statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels)
+            stats = statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, labels)
         else:
             stats = {}
         return results, stats

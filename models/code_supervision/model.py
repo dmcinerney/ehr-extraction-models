@@ -58,7 +58,7 @@ class Model(nn.Module):
     def forward(self, article_sentences, article_sentences_lengths, num_codes, codes=None, code_description=None, code_description_length=None, linearized_codes=None, linearized_codes_lengths=None, linearized_descriptions=None, linearized_descriptions_lengths=None):
         nq = num_codes.max()
         nq_temp =  self.codes_per_checkpoint
-        scores, attention, traceback_attention = [], [], []
+        scores, attention, traceback_attention, context_vec = [], [], [], []
         for offset in range(0, nq, nq_temp):
             if codes is not None:
                 codes_temp = codes[:, offset:offset+nq_temp]
@@ -83,7 +83,7 @@ class Model(nn.Module):
                 linearized_descriptions_temp = torch.zeros(0)
                 linearized_descriptions_lengths_temp = torch.zeros(0)
             num_codes_temp = torch.clamp(num_codes-offset, 0, nq_temp)
-            scores_temp, attention_temp, traceback_attention_temp = checkpoint(
+            scores_temp, attention_temp, traceback_attention_temp, context_vec_temp = checkpoint(
                 self.inner_forward,
                 article_sentences,
                 article_sentences_lengths,
@@ -99,9 +99,11 @@ class Model(nn.Module):
             scores.append(scores_temp)
             attention.append(attention_temp)
             traceback_attention.append(traceback_attention_temp)
+            context_vec.append(context_vec_temp)
         scores = torch.cat(scores, 1)
         attention = torch.cat(attention, 1)
         traceback_attention = torch.cat(traceback_attention, 1)
+        context_vec = torch.cat(context_vec, 1)
         if self.cluster:
             clustering = self.clusterer(article_sentences, article_sentences_lengths, attention, num_codes)
         else:
@@ -112,7 +114,8 @@ class Model(nn.Module):
             attention=attention,
             traceback_attention=traceback_attention,
             article_sentences_lengths=article_sentences_lengths,
-            clustering=clustering)
+            clustering=clustering,
+            context_vec=context_vec)
         if codes is not None:
             return_dict['codes'] = codes
         return return_dict
@@ -155,8 +158,8 @@ class Model(nn.Module):
         else:
             code_embeddings = all_code_embeddings[0]
         key_padding_mask = (article_sentences_lengths == 0)[:,:encodings.size(1)]
-        encoding, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1), key_padding_mask=key_padding_mask)
-        nq, _, emb_dim = encoding.shape
+        contextvec, sentence_level_attentions = self.attention(code_embeddings.transpose(0, 1), encodings.transpose(0, 1), encodings.transpose(0, 1), key_padding_mask=key_padding_mask)
+        nq, _, emb_dim = contextvec.shape
         word_level_attentions = word_level_attentions\
             .view(b, 1, ns, nt)\
             .expand(b, nq, ns, nt)
@@ -166,12 +169,14 @@ class Model(nn.Module):
         attention = word_level_attentions*sentence_level_attentions.unsqueeze(3)
         traceback_attention = traceback_word_level_attentions*sentence_level_attentions.unsqueeze(3)
         if self.concatenate_code_embedding:
-            encoding = torch.cat([encoding, code_embeddings.transpose(0, 1)], 2)
+            encoding = torch.cat([contextvec, code_embeddings.transpose(0, 1)], 2)
             encoding = torch.relu(self.linear3(encoding))
+        else:
+            encoding = contextvec
         scores = self.linear(encoding)
-        return scores.transpose(0, 1).squeeze(2), attention, traceback_attention
+        return scores.transpose(0, 1).squeeze(2), attention, traceback_attention, contextvec.transpose(0, 1)
 
-def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
+def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, labels, attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
     b, nq, ns, nt = attention.shape
     positive_labels = labels.sum()
     negative_labels = num_codes.sum() - positive_labels
@@ -186,12 +191,12 @@ def abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, tra
     return loss
 
 def loss_func_creator(attention_sparsity=False, traceback_attention_sparsity=False, gamma=1):
-    def loss_func_wrapper(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels):
-        return abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels,
+    def loss_func_wrapper(total_num_codes, scores, codes, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, labels):
+        return abstract_loss_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, labels,
                                   attention_sparsity=attention_sparsity, traceback_attention_sparsity=traceback_attention_sparsity, gamma=gamma)
     return loss_func_wrapper
 
-def statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, article_sentences_lengths, clustering, labels):
+def statistics_func(total_num_codes, scores, codes, num_codes, attention, traceback_attention, context_vec, article_sentences_lengths, clustering, labels):
     b, nq, ns, nt = attention.shape
     code_mask = (torch.arange(labels.size(1), device=labels.device) < num_codes.unsqueeze(1))
     positives = get_code_counts(total_num_codes, codes, code_mask, (scores > 0))
